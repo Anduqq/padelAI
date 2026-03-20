@@ -124,7 +124,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
           type="button"
           className="primary-button"
           disabled={disabled || !canSubmit}
-          onClick={submitAmericanoScore}
+          onClick={() => submitAmericanoScore()}
         >
           Save points
         </button>
