@@ -32,7 +32,7 @@ export function AuthPage() {
   return (
     <div className="screen-shell auth-shell">
       <section className="hero-panel">
-        <p className="eyebrow">IAR PADEL</p>
+        <p className="eyebrow">Padel tournament</p>
         <h1>Pick a saved player and jump straight into the board.</h1>
         <p className="muted-text">
           The app now keeps sign-in lightweight: every saved player appears here, and you can create new players from

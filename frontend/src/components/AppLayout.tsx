@@ -33,7 +33,7 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
     <div className="screen-shell">
       <header className="topbar">
         <div className="topbar-title">
-          <p className="eyebrow">IAR PADEL</p>
+          <p className="eyebrow">Padel tournament</p>
           <h1>Live tournament control</h1>
         </div>
         <div className="topbar-actions">

@@ -31,6 +31,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
   const americanoState = deriveAmericanoState(match, americanoPointsTarget);
   const [winner, setWinner] = useState<WinnerSide | null>(americanoState.winner);
   const [loserScore, setLoserScore] = useState<number | null>(americanoState.loserScore);
+  const hasSavedScore = match.team_a_games !== null && match.team_b_games !== null;
 
   useEffect(() => {
     setTeamAGames(match.team_a_games ?? 0);
@@ -61,6 +62,8 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
 
   if (scoringSystem === "americano_points" && americanoPointsTarget !== null) {
     const canSubmit = winner !== null && loserScore !== null;
+    const teamALabel = winner === null ? "Tap winner first" : winner === "team_a" ? "Winner" : "Losing team";
+    const teamBLabel = winner === null ? "Tap winner first" : winner === "team_b" ? "Winner" : "Losing team";
     const preview =
       winner === null || loserScore === null
         ? "- : -"
@@ -69,42 +72,32 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
           : `${loserScore} : ${americanoPointsTarget}`;
 
     return (
-      <section className="score-editor americano-editor">
+      <section className={hasSavedScore ? "score-editor americano-editor score-editor-saved" : "score-editor americano-editor"}>
         <div className="winner-grid">
           <button
             type="button"
             className={winner === "team_a" ? "winner-button winner-button-active" : "winner-button"}
             disabled={disabled}
-            onClick={() =>
-              {
-                setWinner("team_a");
-                setLoserScore((current) => current ?? 0);
-              }
-            }
+            onClick={() => setWinner("team_a")}
           >
-            <span className="score-field-label">Winner</span>
+            <span className="score-field-label">{teamALabel}</span>
             <strong>{match.team_a.map((player) => player.display_name).join(" / ")}</strong>
           </button>
           <button
             type="button"
             className={winner === "team_b" ? "winner-button winner-button-active" : "winner-button"}
             disabled={disabled}
-            onClick={() =>
-              {
-                setWinner("team_b");
-                setLoserScore((current) => current ?? 0);
-              }
-            }
+            onClick={() => setWinner("team_b")}
           >
-            <span className="score-field-label">Winner</span>
+            <span className="score-field-label">{teamBLabel}</span>
             <strong>{match.team_b.map((player) => player.display_name).join(" / ")}</strong>
           </button>
         </div>
 
         <div className="score-chip-section">
           <p className="muted-text score-helper">
-            Pick the losing score. The winner always reaches {americanoPointsTarget}. Tap the same value again to clear
-            it.
+            Choose the winner first, then pick the losing score. The winner always reaches {americanoPointsTarget}. Tap
+            the same value again to clear it.
           </p>
           <div className="score-chip-grid">
             {Array.from({ length: americanoPointsTarget }, (_, index) => (
@@ -113,7 +106,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
                 key={index}
                 className={loserScore === index ? "score-chip score-chip-active" : "score-chip"}
                 aria-pressed={loserScore === index}
-                disabled={disabled}
+                disabled={disabled || winner === null}
                 onClick={() => toggleLosingScore(index)}
               >
                 {index}
@@ -122,18 +115,19 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
           </div>
         </div>
 
-        <div className="score-preview">
+        <div className={hasSavedScore ? "score-preview score-preview-saved" : "score-preview"}>
           <span className="score-field-label">Preview</span>
           <strong className="score-field-value">{preview}</strong>
+          {hasSavedScore ? <span className="score-save-state">Points saved</span> : null}
         </div>
 
         <button
           type="button"
-          className="primary-button"
+          className={hasSavedScore ? "secondary-button" : "primary-button"}
           disabled={disabled || !canSubmit}
           onClick={() => submitAmericanoScore()}
         >
-          Save points
+          {hasSavedScore ? "Update points" : "Save points"}
         </button>
       </section>
     );

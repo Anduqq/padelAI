@@ -227,6 +227,11 @@ td {
   gap: 1rem;
 }
 
+.score-editor-saved {
+  border: 1px solid rgba(65, 191, 170, 0.28);
+  background: rgba(65, 191, 170, 0.08);
+}
+
 .primary-button,
 .button-link,
 .ghost-button,
@@ -410,6 +415,10 @@ td {
   color: inherit;
 }
 
+.score-chip:disabled {
+  opacity: 0.4;
+}
+
 .score-chip-active {
   border-color: rgba(65, 191, 170, 0.48);
   background: rgba(65, 191, 170, 0.2);
@@ -420,6 +429,23 @@ td {
   border: 1px solid rgba(248, 241, 231, 0.08);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.03);
+}
+
+.score-preview-saved {
+  border-color: rgba(65, 191, 170, 0.3);
+  background: rgba(65, 191, 170, 0.12);
+}
+
+.score-save-state {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(65, 191, 170, 0.2);
+  color: #b9fff5;
+  font-size: 0.8rem;
 }
 
 .chip-list,
