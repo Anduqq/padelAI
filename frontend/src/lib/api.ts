@@ -75,6 +75,8 @@ export const api = {
     format: "americano" | "mexicano";
     court_count: number;
     target_rounds?: number | null;
+    scoring_system: "classic" | "americano_points";
+    americano_points_target?: number | null;
     participant_ids: string[];
   }) =>
     request<TournamentDetail>("/api/tournaments", {
@@ -87,6 +89,10 @@ export const api = {
     }),
   generateNextRound: (tournamentId: string) =>
     request<TournamentDetail>(`/api/tournaments/${tournamentId}/generate-next-round`, {
+      method: "POST"
+    }),
+  unlockRound: (tournamentId: string, roundId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/rounds/${roundId}/unlock`, {
       method: "POST"
     }),
   updateScore: (matchId: string, payload: { team_a_games: number; team_b_games: number; version: number }) =>

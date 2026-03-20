@@ -295,6 +295,10 @@ td {
   color: rgba(248, 241, 231, 0.72);
 }
 
+.score-helper {
+  margin: 0;
+}
+
 .chip-list,
 .selected-player-list {
   display: flex;
@@ -374,6 +378,10 @@ td {
 .tournament-card {
   display: grid;
   gap: 1rem;
+}
+
+.unlock-row {
+  margin-top: 0.75rem;
 }
 
 @media (max-width: 980px) {

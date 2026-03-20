@@ -5,10 +5,13 @@ import type { MatchItem } from "../lib/types";
 interface ScoreEditorProps {
   match: MatchItem;
   disabled: boolean;
+  scoreLabel: string;
+  scoreHint?: string;
+  submitLabel?: string;
   onSubmit: (payload: { team_a_games: number; team_b_games: number; version: number }) => void;
 }
 
-export function ScoreEditor({ match, disabled, onSubmit }: ScoreEditorProps) {
+export function ScoreEditor({ match, disabled, scoreLabel, scoreHint, submitLabel = "Save score", onSubmit }: ScoreEditorProps) {
   const [teamAGames, setTeamAGames] = useState(match.team_a_games ?? 0);
   const [teamBGames, setTeamBGames] = useState(match.team_b_games ?? 0);
 
@@ -51,8 +54,12 @@ export function ScoreEditor({ match, disabled, onSubmit }: ScoreEditorProps) {
           onChange={(event) => setTeamBGames(Number(event.target.value))}
         />
       </label>
+      <p className="muted-text score-helper">
+        {scoreLabel}
+        {scoreHint ? ` - ${scoreHint}` : ""}
+      </p>
       <button type="submit" className="primary-button" disabled={disabled}>
-        Save score
+        {submitLabel}
       </button>
     </form>
   );

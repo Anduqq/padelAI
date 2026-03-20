@@ -1,6 +1,7 @@
 export type TournamentFormat = "americano" | "mexicano";
 export type TournamentStatus = "draft" | "active" | "completed";
 export type RoundStatus = "pending" | "active" | "completed";
+export type ScoringSystem = "classic" | "americano_points";
 
 export interface User {
   id: string;
@@ -51,6 +52,8 @@ export interface TournamentSummary {
   status: TournamentStatus;
   court_count: number;
   target_rounds: number | null;
+  scoring_system: ScoringSystem;
+  americano_points_target: number | null;
   participant_count: number;
   created_at: string;
   started_at: string | null;
@@ -94,6 +97,7 @@ export interface RoundItem {
   metadata: RoundMetadata | null;
   started_at: string | null;
   completed_at: string | null;
+  can_unlock: boolean;
   matches: MatchItem[];
 }
 

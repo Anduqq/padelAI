@@ -64,6 +64,16 @@ export function TournamentPage() {
     }
   });
 
+  const unlockRoundMutation = useMutation({
+    mutationFn: (roundId: string) => api.unlockRound(tournamentId, roundId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tournament", tournamentId] });
+      await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+      await queryClient.invalidateQueries({ queryKey: ["global-leaderboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-stats"] });
+    }
+  });
+
   if (tournamentQuery.isLoading) {
     return <section className="panel">Loading tournament...</section>;
   }
@@ -73,6 +83,13 @@ export function TournamentPage() {
   }
 
   const tournament = tournamentQuery.data;
+  const scoreLabel =
+    tournament.scoring_system === "americano_points" ? "Enter Americano points" : "Enter the final match score";
+  const scoreHint =
+    tournament.scoring_system === "americano_points" && tournament.americano_points_target
+      ? `total must equal ${tournament.americano_points_target}`
+      : "normal scoring";
+  const submitLabel = tournament.scoring_system === "americano_points" ? "Save points" : "Save score";
 
   return (
     <div className="stack-section">
@@ -97,6 +114,14 @@ export function TournamentPage() {
           <div className="stat-card">
             <span>Rounds target</span>
             <strong>{tournament.target_rounds ?? "Auto"}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Scoring</span>
+            <strong>
+              {tournament.scoring_system === "americano_points"
+                ? `Americano / ${tournament.americano_points_target}`
+                : "Classic"}
+            </strong>
           </div>
           <div className="stat-card">
             <span>Started</span>
@@ -189,13 +214,30 @@ export function TournamentPage() {
                   </div>
                 ) : null}
 
+                {round.can_unlock ? (
+                  <div className="action-row unlock-row">
+                    <span className="muted-text">Unlock this round if a result was entered incorrectly.</span>
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      disabled={unlockRoundMutation.isPending}
+                      onClick={() => unlockRoundMutation.mutate(round.id)}
+                    >
+                      {unlockRoundMutation.isPending ? "Unlocking..." : "Unlock results"}
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="match-stack">
                   {round.matches.map((match) =>
                     round.status === "active" ? (
                       <ScoreEditor
                         key={match.id}
                         match={match}
-                        disabled={scoreMutation.isPending}
+                        disabled={scoreMutation.isPending || unlockRoundMutation.isPending}
+                        scoreLabel={scoreLabel}
+                        scoreHint={scoreHint}
+                        submitLabel={submitLabel}
                         onSubmit={(payload) =>
                           scoreMutation.mutate({
                             matchId: match.id,
@@ -223,6 +265,7 @@ export function TournamentPage() {
             ))}
           </div>
           {scoreMutation.error ? <p className="error-text">{scoreMutation.error.message}</p> : null}
+          {unlockRoundMutation.error ? <p className="error-text">{unlockRoundMutation.error.message}</p> : null}
         </section>
       </section>
     </div>

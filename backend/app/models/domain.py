@@ -69,6 +69,8 @@ class Tournament(Base):
     status: Mapped[TournamentStatus] = mapped_column(Enum(TournamentStatus), default=TournamentStatus.DRAFT)
     court_count: Mapped[int] = mapped_column(Integer, default=2)
     target_rounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    scoring_system: Mapped[str] = mapped_column(String(32), default="classic")
+    americano_points_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

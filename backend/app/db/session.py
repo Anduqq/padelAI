@@ -24,6 +24,7 @@ def init_db() -> None:
 
     Base.metadata.create_all(bind=engine)
     _ensure_user_admin_column()
+    _ensure_tournament_scoring_columns()
 
     session = SessionLocal()
     try:
@@ -52,3 +53,24 @@ def _ensure_user_admin_column() -> None:
     )
     with engine.begin() as connection:
         connection.execute(text(statement))
+
+
+def _ensure_tournament_scoring_columns() -> None:
+    inspector = inspect(engine)
+    if "tournaments" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("tournaments")}
+    statements: list[str] = []
+
+    if "scoring_system" not in columns:
+        statements.append("ALTER TABLE tournaments ADD COLUMN scoring_system VARCHAR(32) NOT NULL DEFAULT 'classic'")
+    if "americano_points_target" not in columns:
+        statements.append("ALTER TABLE tournaments ADD COLUMN americano_points_target INTEGER NULL")
+
+    if not statements:
+        return
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(text(statement))

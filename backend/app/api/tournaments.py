@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user
@@ -29,6 +29,7 @@ from app.services.round_generation import (
     generate_mexicano_round,
     get_schedule_capacity,
 )
+from app.services.scoring import resolve_tournament_scoring, validate_match_score
 from app.ws.manager import manager
 
 router = APIRouter()
@@ -54,6 +55,8 @@ def _serialize_tournament_summary(tournament: Tournament) -> dict:
         "status": tournament.status.value,
         "court_count": tournament.court_count,
         "target_rounds": tournament.target_rounds,
+        "scoring_system": tournament.scoring_system,
+        "americano_points_target": tournament.americano_points_target,
         "participant_count": len(tournament.participants),
         "created_at": tournament.created_at,
         "started_at": tournament.started_at,
@@ -92,7 +95,7 @@ def _serialize_match(match: Match, player_map: dict[str, Player]) -> dict:
     }
 
 
-def _serialize_round(round_row: Round, player_map: dict[str, Player]) -> dict:
+def _serialize_round(round_row: Round, player_map: dict[str, Player], can_unlock: bool) -> dict:
     metadata = dict(round_row.metadata_json or {})
     bench_player_ids = [player_id for player_id in metadata.get("bench_player_ids", []) if player_id in player_map]
     if metadata:
@@ -108,6 +111,7 @@ def _serialize_round(round_row: Round, player_map: dict[str, Player]) -> dict:
         "metadata": metadata or None,
         "started_at": round_row.started_at,
         "completed_at": round_row.completed_at,
+        "can_unlock": can_unlock,
         "matches": [_serialize_match(match, player_map) for match in round_row.matches],
     }
 
@@ -131,6 +135,18 @@ def _build_player_map(tournament: Tournament) -> dict[str, Player]:
     return {participant.player.id: participant.player for participant in tournament.participants}
 
 
+def _round_has_scores(round_row: Round) -> bool:
+    return any(match.team_a_games is not None or match.team_b_games is not None for match in round_row.matches)
+
+
+def _can_unlock_round(tournament: Tournament, round_row: Round) -> bool:
+    if round_row.status != RoundStatus.COMPLETED:
+        return False
+
+    later_rounds = [item for item in tournament.rounds if item.number > round_row.number]
+    return not any(_round_has_scores(item) for item in later_rounds)
+
+
 def _serialize_tournament_detail(db: Session, tournament: Tournament) -> dict:
     player_map = _build_player_map(tournament)
     active_round = next((round_row for round_row in tournament.rounds if round_row.status == RoundStatus.ACTIVE), None)
@@ -152,10 +168,17 @@ def _serialize_tournament_detail(db: Session, tournament: Tournament) -> dict:
         and rounds_generated > 0
     )
 
+    unlockable_round_ids = {
+        round_row.id for round_row in tournament.rounds if _can_unlock_round(tournament, round_row)
+    }
+
     return {
         **_serialize_tournament_summary(tournament),
         "participants": [_serialize_participant(participant) for participant in tournament.participants],
-        "rounds": [_serialize_round(round_row, player_map) for round_row in tournament.rounds],
+        "rounds": [
+            _serialize_round(round_row, player_map, round_row.id in unlockable_round_ids)
+            for round_row in tournament.rounds
+        ],
         "leaderboard": compute_tournament_standings(db, tournament.id),
         "last_snapshot": latest_snapshot.standings_json if latest_snapshot else None,
         "can_generate_next_round": waiting_for_next_round,
@@ -204,6 +227,37 @@ def _ensure_supported_participants(payload: TournamentCreateRequest, players: li
     return capacity
 
 
+def _unlock_round_state(db: Session, tournament: Tournament, round_row: Round) -> None:
+    if not _can_unlock_round(tournament, round_row):
+        raise HTTPException(
+            status_code=400,
+            detail="Only the latest completed results with no scored later rounds can be unlocked.",
+        )
+
+    later_rounds = [item for item in tournament.rounds if item.number > round_row.number]
+    if tournament.format == TournamentFormat.MEXICANO:
+        for later_round in later_rounds:
+            db.delete(later_round)
+    else:
+        for later_round in later_rounds:
+            later_round.status = RoundStatus.PENDING
+            later_round.started_at = None
+
+    db.execute(
+        delete(StandingsSnapshot).where(
+            StandingsSnapshot.tournament_id == tournament.id,
+            StandingsSnapshot.round_number >= round_row.number,
+        )
+    )
+
+    round_row.status = RoundStatus.ACTIVE
+    round_row.completed_at = None
+    round_row.started_at = round_row.started_at or _utc_now()
+
+    tournament.status = TournamentStatus.ACTIVE
+    tournament.completed_at = None
+
+
 def _persist_round_completion(db: Session, tournament: Tournament, round_row: Round) -> None:
     round_row.status = RoundStatus.COMPLETED
     round_row.completed_at = _utc_now()
@@ -233,12 +287,23 @@ def create_tournament(
 ) -> dict:
     players = db.execute(select(Player).where(Player.id.in_(payload.participant_ids))).scalars().all()
     capacity = _ensure_supported_participants(payload, players)
+    try:
+        scoring_config = resolve_tournament_scoring(
+            tournament_format=payload.format,
+            scoring_system=payload.scoring_system,
+            americano_points_target=payload.americano_points_target,
+            active_player_count=capacity.active_player_count,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     tournament = Tournament(
         name=payload.name.strip(),
         format=TournamentFormat(payload.format),
         court_count=capacity.active_courts,
         target_rounds=payload.target_rounds,
+        scoring_system=scoring_config.scoring_system,
+        americano_points_target=scoring_config.americano_points_target,
         created_by_user_id=current_user.id,
     )
     db.add(tournament)
@@ -390,6 +455,35 @@ async def generate_next_round(
     return _serialize_tournament_detail(db, tournament)
 
 
+@router.post("/{tournament_id}/rounds/{round_id}/unlock")
+async def unlock_round(
+    tournament_id: str,
+    round_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+
+    round_row = next((item for item in tournament.rounds if item.id == round_id), None)
+    if round_row is None:
+        raise HTTPException(status_code=404, detail="Round not found.")
+
+    _unlock_round_state(db, tournament, round_row)
+    db.commit()
+
+    tournament = _load_tournament(db, tournament.id)
+    if tournament is None:
+        raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
+
+    await manager.broadcast(
+        tournament.id,
+        {"type": "round_unlocked", "tournament_id": tournament.id, "round_id": round_id},
+    )
+    return _serialize_tournament_detail(db, tournament)
+
+
 @router.post("/matches/{match_id}/score")
 async def update_score(
     match_id: str,
@@ -416,6 +510,15 @@ async def update_score(
         raise HTTPException(status_code=400, detail="Only active round matches can be edited.")
     if payload.version != match.version:
         raise HTTPException(status_code=409, detail="This match has been updated by someone else. Refresh and try again.")
+    try:
+        validate_match_score(
+            scoring_system=match.tournament.scoring_system,
+            americano_points_target=match.tournament.americano_points_target,
+            team_a_score=payload.team_a_games,
+            team_b_score=payload.team_b_games,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     db.add(
         ScoreAuditLog(

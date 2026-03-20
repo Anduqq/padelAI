@@ -1,10 +1,42 @@
-import { startTransition, useDeferredValue, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { TournamentCard } from "../components/TournamentCard";
 import { api } from "../lib/api";
+import type { ScoringSystem, TournamentFormat } from "../lib/types";
+
+function buildDefaultTournamentName(format: TournamentFormat) {
+  const label = format === "americano" ? "Americano" : "Mexicano";
+  const dateLabel = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date());
+  return `${label} ${dateLabel}`;
+}
+
+function getRecommendedAmericanoTarget(activePlayerCount: number) {
+  if (activePlayerCount === 8) {
+    return 17;
+  }
+  if (activePlayerCount === 12) {
+    return 13;
+  }
+  return null;
+}
+
+function getRecommendedScoringSetup(format: TournamentFormat, activePlayerCount: number) {
+  if (format !== "americano" || activePlayerCount === 4) {
+    return { scoringSystem: "classic" as const, americanoPointsTarget: null };
+  }
+
+  return {
+    scoringSystem: "americano_points" as const,
+    americanoPointsTarget: getRecommendedAmericanoTarget(activePlayerCount)
+  };
+}
 
 function describeSelection(selectedCount: number, courtCount: number) {
   const activeCourts = Math.min(courtCount, Math.floor(selectedCount / 4));
@@ -49,10 +81,14 @@ function describeSelection(selectedCount: number, courtCount: number) {
 }
 
 export function DashboardPage() {
-  const [name, setName] = useState("");
-  const [format, setFormat] = useState<"americano" | "mexicano">("americano");
+  const [format, setFormat] = useState<TournamentFormat>("americano");
+  const [name, setName] = useState(() => buildDefaultTournamentName("americano"));
   const [courtCount, setCourtCount] = useState(2);
   const [targetRounds, setTargetRounds] = useState(5);
+  const [scoringSystem, setScoringSystem] = useState<ScoringSystem>("classic");
+  const [americanoPointsTarget, setAmericanoPointsTarget] = useState("");
+  const [hasCustomScoring, setHasCustomScoring] = useState(false);
+  const [hasCustomAmericanoTarget, setHasCustomAmericanoTarget] = useState(false);
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [playerSearch, setPlayerSearch] = useState("");
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -64,6 +100,37 @@ export function DashboardPage() {
   const playersQuery = useQuery({ queryKey: ["players"], queryFn: api.getPlayers });
   const suggestionsQuery = useQuery({ queryKey: ["suggestions"], queryFn: api.getSuggestions });
   const selectionState = describeSelection(selectedPlayers.length, courtCount);
+  const recommendedScoring = getRecommendedScoringSetup(format, selectionState.activePlayerCount);
+  const canSubmit =
+    selectionState.supported &&
+    name.trim().length >= 3 &&
+    (format !== "americano" || scoringSystem === "classic" || americanoPointsTarget.trim().length > 0);
+
+  useEffect(() => {
+    if (format !== "americano") {
+      setScoringSystem("classic");
+      setAmericanoPointsTarget("");
+      setHasCustomScoring(false);
+      setHasCustomAmericanoTarget(false);
+      return;
+    }
+
+    if (!hasCustomScoring) {
+      setScoringSystem(recommendedScoring.scoringSystem);
+    }
+
+    if (!hasCustomAmericanoTarget) {
+      setAmericanoPointsTarget(
+        recommendedScoring.americanoPointsTarget ? String(recommendedScoring.americanoPointsTarget) : ""
+      );
+    }
+  }, [
+    format,
+    recommendedScoring.americanoPointsTarget,
+    recommendedScoring.scoringSystem,
+    hasCustomAmericanoTarget,
+    hasCustomScoring
+  ]);
 
   const createTournament = useMutation({
     mutationFn: () =>
@@ -72,6 +139,11 @@ export function DashboardPage() {
         format,
         court_count: courtCount,
         target_rounds: format === "mexicano" ? targetRounds : null,
+        scoring_system: format === "americano" ? scoringSystem : "classic",
+        americano_points_target:
+          format === "americano" && scoringSystem === "americano_points" && americanoPointsTarget.trim().length > 0
+            ? Number(americanoPointsTarget)
+            : null,
         participant_ids: selectedPlayers
       }),
     onSuccess: async (tournament) => {
@@ -106,6 +178,13 @@ export function DashboardPage() {
     );
   }
 
+  function handleFormatChange(nextFormat: TournamentFormat) {
+    const previousSuggested = buildDefaultTournamentName(format);
+    const nextSuggested = buildDefaultTournamentName(nextFormat);
+    setFormat(nextFormat);
+    setName((current) => (current.trim().length === 0 || current === previousSuggested ? nextSuggested : current));
+  }
+
   const completedTournaments = tournamentsQuery.data?.filter((item) => item.status === "completed") ?? [];
 
   return (
@@ -124,7 +203,6 @@ export function DashboardPage() {
             <span>Tournament name</span>
             <input
               value={name}
-              placeholder="Wednesday evening league"
               onChange={(event) => setName(event.target.value)}
               required
             />
@@ -132,7 +210,7 @@ export function DashboardPage() {
           <div className="form-row">
             <label>
               <span>Format</span>
-              <select value={format} onChange={(event) => setFormat(event.target.value as "americano" | "mexicano")}>
+              <select value={format} onChange={(event) => handleFormatChange(event.target.value as TournamentFormat)}>
                 <option value="americano">Americano</option>
                 <option value="mexicano">Mexicano</option>
               </select>
@@ -160,6 +238,59 @@ export function DashboardPage() {
                 onChange={(event) => setTargetRounds(Number(event.target.value))}
               />
             </label>
+          ) : null}
+
+          {format === "americano" ? (
+            <div className="panel inset-panel">
+              <div className="split-row">
+                <div>
+                  <p className="eyebrow">Scoring</p>
+                  <h3>Choose the point system</h3>
+                </div>
+                <span className="muted-text">
+                  {recommendedScoring.scoringSystem === "americano_points"
+                    ? "Americano points recommended"
+                    : "Classic scoring recommended"}
+                </span>
+              </div>
+              <label>
+                <span>Point system</span>
+                <select
+                  value={scoringSystem}
+                  onChange={(event) => {
+                    setHasCustomScoring(true);
+                    setScoringSystem(event.target.value as ScoringSystem);
+                  }}
+                >
+                  <option value="classic">Classic scoring</option>
+                  <option value="americano_points">Americano points</option>
+                </select>
+              </label>
+              {scoringSystem === "americano_points" ? (
+                <label>
+                  <span>Points per match</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={americanoPointsTarget}
+                    placeholder={recommendedScoring.americanoPointsTarget ? String(recommendedScoring.americanoPointsTarget) : "Enter points"}
+                    onChange={(event) => {
+                      setHasCustomAmericanoTarget(true);
+                      setAmericanoPointsTarget(event.target.value);
+                    }}
+                    required
+                  />
+                </label>
+              ) : null}
+              <p className="muted-text selection-note">
+                {selectionState.activePlayerCount === 4
+                  ? "With 4 players, classic match scoring is usually the better default."
+                  : recommendedScoring.americanoPointsTarget
+                    ? `Recommended target: ${recommendedScoring.americanoPointsTarget} points for ${selectionState.activePlayerCount} active players.`
+                    : "Choose the Americano points target you want to play to."}
+              </p>
+            </div>
           ) : null}
 
           <div className="panel inset-panel">
@@ -253,7 +384,7 @@ export function DashboardPage() {
           <button
             type="submit"
             className="primary-button"
-            disabled={createTournament.isPending || !selectionState.supported}
+            disabled={createTournament.isPending || !canSubmit}
           >
             {createTournament.isPending ? "Creating..." : "Create tournament"}
           </button>

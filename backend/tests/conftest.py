@@ -1,3 +1,4 @@
+import os
 from collections.abc import Generator
 from pathlib import Path
 import sys
@@ -11,6 +12,8 @@ from sqlalchemy.pool import StaticPool
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
+
+os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 from app.api.deps import get_db
 from app.db.base import Base

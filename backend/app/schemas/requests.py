@@ -24,6 +24,8 @@ class TournamentCreateRequest(BaseModel):
     format: Literal["americano", "mexicano"]
     court_count: int = Field(default=2, ge=1, le=8)
     target_rounds: int | None = Field(default=None, ge=1, le=30)
+    scoring_system: Literal["classic", "americano_points"] = "classic"
+    americano_points_target: int | None = Field(default=None, ge=1, le=99)
     participant_ids: list[str] = Field(min_length=4)
 
     @field_validator("participant_ids")
