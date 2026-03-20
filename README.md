@@ -1,4 +1,4 @@
-# Padel By Claudiu
+# padelAI
 
 Private tournament tracking app for Americano and classical dynamic Mexicano games.
 
