@@ -85,14 +85,16 @@ export function ProfilePage() {
   const profile = profileQuery.data;
   const tournamentsPlayed = profile.stats.tournaments_played ?? profile.history.length;
   const podiumFinishes = profile.history.filter((item) => item.placement !== null && item.placement <= 3).length;
+  const completedEvents = profile.history.filter((item) => item.completed_at !== null).length;
   const resultsSegments: PieSegment[] = [
     { label: "Wins", value: profile.stats.wins, color: "#49baa8" },
     { label: "Losses", value: profile.stats.losses, color: "#ff7f3f" },
     { label: "Draws", value: profile.stats.draws, color: "#ffc980" }
   ];
-  const gamesSegments: PieSegment[] = [
-    { label: "Games won", value: profile.stats.games_for, color: "#ffb347" },
-    { label: "Games against", value: profile.stats.games_against, color: "#27444a" }
+  const eventSegments: PieSegment[] = [
+    { label: "Podiums", value: podiumFinishes, color: "#ffb347" },
+    { label: "Completed", value: Math.max(0, completedEvents - podiumFinishes), color: "#49baa8" },
+    { label: "Still active", value: Math.max(0, tournamentsPlayed - completedEvents), color: "#27444a" }
   ];
   const formatSegments: PieSegment[] = [
     {
@@ -145,11 +147,11 @@ export function ProfilePage() {
           segments={resultsSegments}
         />
         <PieStatCard
-          title="Games share"
-          subtitle="All-time games for vs against"
-          totalLabel="Games"
-          totalValue={String(profile.stats.games_for + profile.stats.games_against)}
-          segments={gamesSegments}
+          title="Event finishes"
+          subtitle="How your tournaments have ended"
+          totalLabel="Events"
+          totalValue={String(tournamentsPlayed)}
+          segments={eventSegments}
         />
         <PieStatCard
           title="Format split"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { MatchItem, ScoringSystem } from "../lib/types";
 
@@ -31,7 +31,6 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
   const americanoState = deriveAmericanoState(match, americanoPointsTarget);
   const [winner, setWinner] = useState<WinnerSide | null>(americanoState.winner);
   const [loserScore, setLoserScore] = useState<number | null>(americanoState.loserScore);
-  const lastInteractionAt = useRef(0);
 
   useEffect(() => {
     setTeamAGames(match.team_a_games ?? 0);
@@ -39,15 +38,6 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
     setWinner(americanoState.winner);
     setLoserScore(americanoState.loserScore);
   }, [americanoState.loserScore, americanoState.winner, match.team_a_games, match.team_b_games]);
-
-  function runInteraction(action: () => void) {
-    const now = Date.now();
-    if (now - lastInteractionAt.current < 250) {
-      return;
-    }
-    lastInteractionAt.current = now;
-    action();
-  }
 
   function submitAmericanoScore(nextWinner = winner, nextLoserScore = loserScore) {
     if (nextWinner === null || nextLoserScore === null || americanoPointsTarget === null) {
@@ -85,17 +75,11 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
             type="button"
             className={winner === "team_a" ? "winner-button winner-button-active" : "winner-button"}
             disabled={disabled}
-            onPointerUp={() =>
-              runInteraction(() => {
-                setWinner("team_a");
-                setLoserScore((current) => current ?? 0);
-              })
-            }
             onClick={() =>
-              runInteraction(() => {
+              {
                 setWinner("team_a");
                 setLoserScore((current) => current ?? 0);
-              })
+              }
             }
           >
             <span className="score-field-label">Winner</span>
@@ -105,17 +89,11 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
             type="button"
             className={winner === "team_b" ? "winner-button winner-button-active" : "winner-button"}
             disabled={disabled}
-            onPointerUp={() =>
-              runInteraction(() => {
-                setWinner("team_b");
-                setLoserScore((current) => current ?? 0);
-              })
-            }
             onClick={() =>
-              runInteraction(() => {
+              {
                 setWinner("team_b");
                 setLoserScore((current) => current ?? 0);
-              })
+              }
             }
           >
             <span className="score-field-label">Winner</span>
@@ -136,8 +114,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
                 className={loserScore === index ? "score-chip score-chip-active" : "score-chip"}
                 aria-pressed={loserScore === index}
                 disabled={disabled}
-                onPointerUp={() => runInteraction(() => toggleLosingScore(index))}
-                onClick={() => runInteraction(() => toggleLosingScore(index))}
+                onClick={() => toggleLosingScore(index)}
               >
                 {index}
               </button>
@@ -154,8 +131,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
           type="button"
           className="primary-button"
           disabled={disabled || !canSubmit}
-          onPointerUp={() => runInteraction(() => submitAmericanoScore())}
-          onClick={() => runInteraction(() => submitAmericanoScore())}
+          onClick={() => submitAmericanoScore()}
         >
           Save points
         </button>

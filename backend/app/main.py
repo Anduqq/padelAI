@@ -13,6 +13,20 @@ from app.models import User
 from app.ws.manager import manager
 
 
+HTML_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
+
+
+class FrontendAssetFiles(StaticFiles):
+    def file_response(self, full_path: str, stat_result, scope: dict, status_code: int = 200) -> FileResponse:
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 @asynccontextmanager
 async def _app_lifespan(_: FastAPI):
     init_db()
@@ -69,16 +83,16 @@ def create_app(*, use_lifespan: bool = True) -> FastAPI:
     frontend_dir = settings.frontend_dist_dir
     assets_dir = frontend_dir / "assets"
     if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        app.mount("/assets", FrontendAssetFiles(directory=assets_dir), name="assets")
 
     def _serve_frontend(path_fragment: str | None = None) -> FileResponse:
         if path_fragment:
             candidate = frontend_dir / path_fragment
             if candidate.exists() and candidate.is_file():
-                return FileResponse(candidate)
+                return FileResponse(candidate, headers=HTML_CACHE_HEADERS)
 
         index_file = frontend_dir / "index.html"
-        return FileResponse(index_file)
+        return FileResponse(index_file, headers=HTML_CACHE_HEADERS)
 
     @app.get("/", include_in_schema=False)
     def serve_index() -> FileResponse:
