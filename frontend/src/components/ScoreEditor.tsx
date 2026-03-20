@@ -39,16 +39,24 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
     setLoserScore(americanoState.loserScore);
   }, [americanoState.loserScore, americanoState.winner, match.team_a_games, match.team_b_games]);
 
-  function submitAmericanoScore() {
-    if (winner === null || loserScore === null || americanoPointsTarget === null) {
+  function submitAmericanoScore(nextWinner = winner, nextLoserScore = loserScore) {
+    if (nextWinner === null || nextLoserScore === null || americanoPointsTarget === null) {
       return;
     }
 
     onSubmit({
-      team_a_games: winner === "team_a" ? americanoPointsTarget : loserScore,
-      team_b_games: winner === "team_b" ? americanoPointsTarget : loserScore,
+      team_a_games: nextWinner === "team_a" ? americanoPointsTarget : nextLoserScore,
+      team_b_games: nextWinner === "team_b" ? americanoPointsTarget : nextLoserScore,
       version: match.version
     });
+  }
+
+  function toggleLosingScore(nextScore: number) {
+    if (disabled) {
+      return;
+    }
+
+    setLoserScore((current) => (current === nextScore ? null : nextScore));
   }
 
   if (scoringSystem === "americano_points" && americanoPointsTarget !== null) {
@@ -61,13 +69,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
           : `${loserScore} : ${americanoPointsTarget}`;
 
     return (
-      <form
-        className="score-editor americano-editor"
-        onSubmit={(event) => {
-          event.preventDefault();
-          submitAmericanoScore();
-        }}
-      >
+      <section className="score-editor americano-editor">
         <div className="winner-grid">
           <button
             type="button"
@@ -103,8 +105,9 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
                 type="button"
                 key={index}
                 className={loserScore === index ? "score-chip score-chip-active" : "score-chip"}
+                aria-pressed={loserScore === index}
                 disabled={disabled}
-                onClick={() => setLoserScore(index)}
+                onClick={() => toggleLosingScore(index)}
               >
                 {index}
               </button>
@@ -125,7 +128,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
         >
           Save points
         </button>
-      </form>
+      </section>
     );
   }
 

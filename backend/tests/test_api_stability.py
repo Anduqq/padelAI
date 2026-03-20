@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.models import Match, Player, Round, RoundStatus, StandingsSnapshot, Tournament, TournamentFormat, TournamentParticipant, TournamentStatus, User
+from app.api import tournaments as tournaments_api
 from app.services.leaderboards import compute_tournament_standings
 
 
@@ -202,6 +203,35 @@ def _seed_draft_tournament(db_session: Session) -> tuple[User, Tournament]:
     return admin_user, tournament
 
 
+def _seed_eight_player_draft_tournament(db_session: Session) -> tuple[User, Tournament]:
+    admin_user, first_player = _create_player(db_session, "IAR", is_admin=True)
+    extra_players = [_create_player(db_session, f"Player {index}")[1] for index in range(2, 9)]
+    players = [first_player, *extra_players]
+
+    tournament = Tournament(
+        name="Eight Player Draft",
+        format=TournamentFormat.AMERICANO,
+        status=TournamentStatus.DRAFT,
+        court_count=2,
+        created_by_user_id=admin_user.id,
+        created_at=_now(),
+    )
+    db_session.add(tournament)
+    db_session.flush()
+
+    for order_index, player in enumerate(players):
+        db_session.add(
+            TournamentParticipant(
+                tournament_id=tournament.id,
+                player_id=player.id,
+                order_index=order_index,
+            )
+        )
+
+    db_session.commit()
+    return admin_user, tournament
+
+
 def test_auth_options_put_iar_first_and_allow_selection(client: TestClient, db_session: Session) -> None:
     _create_player(db_session, "Alex")
     _, iar_player = _create_player(db_session, "IAR", is_admin=True)
@@ -297,3 +327,25 @@ def test_delete_tournament_removes_active_sessions_with_related_rows(client: Tes
         .all()
         == []
     )
+
+
+def test_start_tournament_randomizes_the_initial_pairing_order(
+    client: TestClient,
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    admin_user, tournament = _seed_eight_player_draft_tournament(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    def reverse_shuffle(player_ids: list[str]) -> list[str]:
+        return list(reversed(player_ids))
+
+    monkeypatch.setattr(tournaments_api, "_randomize_player_ids", reverse_shuffle)
+
+    response = client.post(f"/api/tournaments/{tournament.id}/start")
+    assert response.status_code == 200
+
+    payload = response.json()
+    first_match = payload["rounds"][0]["matches"][0]
+    first_team_names = [player["display_name"] for player in first_match["team_a"]]
+    assert first_team_names == ["Player 8", "IAR"]

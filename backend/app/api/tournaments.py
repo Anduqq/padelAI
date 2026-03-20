@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import random
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -37,6 +38,12 @@ router = APIRouter()
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _randomize_player_ids(player_ids: list[str]) -> list[str]:
+    randomized = list(player_ids)
+    random.SystemRandom().shuffle(randomized)
+    return randomized
 
 
 def _serialize_participant(participant: TournamentParticipant) -> dict:
@@ -413,7 +420,7 @@ async def start_tournament(
     if tournament.status != TournamentStatus.DRAFT:
         raise HTTPException(status_code=400, detail="Tournament has already started.")
 
-    participant_ids = [participant.player_id for participant in tournament.participants]
+    participant_ids = _randomize_player_ids([participant.player_id for participant in tournament.participants])
     tournament.status = TournamentStatus.ACTIVE
     tournament.started_at = _utc_now()
 
