@@ -1,0 +1,96 @@
+import type {
+  LeaderboardRow,
+  PlayerStatsResponse,
+  PlayerSummary,
+  SuggestionRow,
+  TournamentDetail,
+  TournamentSummary,
+  User
+} from "./types";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (!headers.has("Content-Type") && init.body) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(path, {
+    credentials: "include",
+    ...init,
+    headers
+  });
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  if (!response.ok) {
+    let message = "Request failed.";
+    try {
+      const body = await response.json();
+      message = body.detail ?? message;
+    } catch {
+      message = response.statusText || message;
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  getCurrentUser: () => request<User>("/api/auth/me"),
+  register: (payload: { email: string; full_name: string; password: string; display_name: string }) =>
+    request<User>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  login: (payload: { email: string; password: string }) =>
+    request<User>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  logout: () =>
+    request<void>("/api/auth/logout", {
+      method: "POST"
+    }),
+  getPlayers: () => request<PlayerSummary[]>("/api/players"),
+  getSuggestions: () => request<SuggestionRow[]>("/api/players/suggestions"),
+  getMyStats: () => request<PlayerStatsResponse>("/api/players/me/stats"),
+  getTournaments: () => request<TournamentSummary[]>("/api/tournaments"),
+  getTournament: (tournamentId: string) => request<TournamentDetail>(`/api/tournaments/${tournamentId}`),
+  createTournament: (payload: {
+    name: string;
+    format: "americano" | "mexicano";
+    court_count: number;
+    target_rounds?: number | null;
+    participant_ids: string[];
+  }) =>
+    request<TournamentDetail>("/api/tournaments", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  startTournament: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/start`, {
+      method: "POST"
+    }),
+  generateNextRound: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/generate-next-round`, {
+      method: "POST"
+    }),
+  updateScore: (matchId: string, payload: { team_a_games: number; team_b_games: number; version: number }) =>
+    request<TournamentDetail>(`/api/tournaments/matches/${matchId}/score`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  getGlobalLeaderboard: () => request<LeaderboardRow[]>("/api/leaderboards/global")
+};

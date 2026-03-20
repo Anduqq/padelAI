@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: padel
+      POSTGRES_USER: padel
+      POSTGRES_PASSWORD: padel
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U padel -d padel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://padel:padel@db:5432/padel}
+      SECRET_KEY: ${SECRET_KEY:-change-me-before-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      COOKIE_NAME: ${COOKIE_NAME:-padel_session}
+      SECURE_COOKIES: ${SECURE_COOKIES:-true}
+      APP_HOST: ${APP_HOST:-0.0.0.0}
+      APP_PORT: ${APP_PORT:-8000}
+    ports:
+      - "${APP_PORT:-8000}:8000"
+
+volumes:
+  postgres_data:
