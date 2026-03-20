@@ -38,7 +38,10 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
             <NavLink to="/profile">My Stats</NavLink>
           </nav>
           <div className="user-chip">
-            <span>{currentUser.display_name}</span>
+            <span>
+              {currentUser.display_name}
+              {currentUser.is_admin ? <span className="admin-tag inline-tag">Admin</span> : null}
+            </span>
             <button type="button" className="ghost-button" onClick={() => logoutMutation.mutate()}>
               Logout
             </button>

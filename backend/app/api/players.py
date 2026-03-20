@@ -1,13 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import Player, User
+from app.schemas.requests import PlayerCreateRequest
 from app.services.leaderboards import build_player_stats, build_player_suggestions
+from app.services.player_accounts import create_player_account
 
 router = APIRouter()
 
@@ -19,6 +21,22 @@ def list_players(
 ) -> list[dict]:
     players = db.execute(select(Player).order_by(Player.display_name)).scalars().all()
     return [{"id": player.id, "display_name": player.display_name} for player in players]
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
+def create_player(
+    payload: PlayerCreateRequest,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    try:
+        player = create_player_account(db, payload.display_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    db.commit()
+    db.refresh(player)
+    return {"id": player.id, "display_name": player.display_name}
 
 
 @router.get("/suggestions")

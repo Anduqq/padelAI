@@ -4,10 +4,16 @@ export type RoundStatus = "pending" | "active" | "completed";
 
 export interface User {
   id: string;
-  email: string;
   full_name: string;
   player_id: string;
   display_name: string;
+  is_admin: boolean;
+}
+
+export interface LoginOption {
+  player_id: string;
+  display_name: string;
+  is_admin: boolean;
 }
 
 export interface PlayerSummary {
@@ -73,11 +79,19 @@ export interface MatchItem {
   team_b: MatchPlayer[];
 }
 
+export interface RoundMetadata {
+  strategy?: string;
+  type?: string;
+  ranking_order?: string[];
+  bench_player_ids?: string[];
+  bench_players?: MatchPlayer[];
+}
+
 export interface RoundItem {
   id: string;
   number: number;
   status: RoundStatus;
-  metadata: Record<string, unknown> | null;
+  metadata: RoundMetadata | null;
   started_at: string | null;
   completed_at: string | null;
   matches: MatchItem[];

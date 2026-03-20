@@ -1,18 +1,22 @@
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    full_name: str = Field(min_length=2, max_length=255)
-    password: str = Field(min_length=8, max_length=72)
+class PlayerLoginRequest(BaseModel):
+    player_id: str = Field(min_length=1, max_length=36)
+
+
+class PlayerCreateRequest(BaseModel):
     display_name: str = Field(min_length=2, max_length=255)
 
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, display_name: str) -> str:
+        normalized = " ".join(display_name.strip().split())
+        if len(normalized) < 2:
+            raise ValueError("Display name must be at least 2 characters long.")
+        return normalized
 
 
 class TournamentCreateRequest(BaseModel):

@@ -1,5 +1,6 @@
 import type {
   LeaderboardRow,
+  LoginOption,
   PlayerStatsResponse,
   PlayerSummary,
   SuggestionRow,
@@ -48,22 +49,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  getLoginOptions: () => request<LoginOption[]>("/api/auth/options"),
+  selectPlayerLogin: (payload: { player_id: string }) =>
+    request<User>("/api/auth/select", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   getCurrentUser: () => request<User>("/api/auth/me"),
-  register: (payload: { email: string; full_name: string; password: string; display_name: string }) =>
-    request<User>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
-  login: (payload: { email: string; password: string }) =>
-    request<User>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    }),
   logout: () =>
     request<void>("/api/auth/logout", {
       method: "POST"
     }),
   getPlayers: () => request<PlayerSummary[]>("/api/players"),
+  createPlayer: (payload: { display_name: string }) =>
+    request<PlayerSummary>("/api/players", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
   getSuggestions: () => request<SuggestionRow[]>("/api/players/suggestions"),
   getMyStats: () => request<PlayerStatsResponse>("/api/players/me/stats"),
   getTournaments: () => request<TournamentSummary[]>("/api/tournaments"),

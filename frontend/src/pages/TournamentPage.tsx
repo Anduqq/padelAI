@@ -176,6 +176,19 @@ export function TournamentPage() {
                   <span className={`status-badge status-${round.status}`}>{formatStatus(round.status)}</span>
                 </div>
 
+                {round.metadata?.bench_players && round.metadata.bench_players.length > 0 ? (
+                  <div className="bench-strip">
+                    <span className="muted-text">Bench</span>
+                    <div className="chip-list">
+                      {round.metadata.bench_players.map((player) => (
+                        <span key={player.player_id} className="chip chip-static">
+                          {player.display_name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="match-stack">
                   {round.matches.map((match) =>
                     round.status === "active" ? (

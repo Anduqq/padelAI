@@ -1,5 +1,5 @@
 :root {
-  font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+  font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
   color: #f8f1e7;
   background:
     radial-gradient(circle at top left, rgba(255, 166, 77, 0.28), transparent 32%),
@@ -24,7 +24,8 @@ a {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -62,6 +63,7 @@ td {
 
 .hero-panel,
 .panel {
+  width: 100%;
   border: 1px solid rgba(248, 241, 231, 0.12);
   background: rgba(15, 26, 32, 0.78);
   backdrop-filter: blur(16px);
@@ -75,6 +77,11 @@ td {
 
 .panel {
   padding: 1.5rem;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 1rem;
 }
 
 .inset-panel {
@@ -110,7 +117,8 @@ td {
 
 .hero-grid,
 .card-grid,
-.stat-grid {
+.stat-grid,
+.player-popup-grid {
   display: grid;
   gap: 1rem;
 }
@@ -120,6 +128,10 @@ td {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.player-popup-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
 .stat-grid {
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   margin: 1rem 0;
@@ -127,7 +139,8 @@ td {
 
 .stat-card,
 .round-card,
-.score-summary {
+.score-summary,
+.player-popup {
   border: 1px solid rgba(248, 241, 231, 0.08);
   background: rgba(255, 255, 255, 0.03);
   border-radius: 18px;
@@ -149,7 +162,8 @@ td {
 
 .stack-form input,
 .stack-form select,
-.score-editor input {
+.score-editor input,
+.inline-form input {
   width: 100%;
   padding: 0.8rem 0.9rem;
   border-radius: 14px;
@@ -169,7 +183,10 @@ td {
 .primary-button,
 .button-link,
 .ghost-button,
-.chip {
+.chip,
+.secondary-button,
+.selected-player,
+.player-popup {
   border: none;
   border-radius: 999px;
   padding: 0.8rem 1.1rem;
@@ -177,13 +194,22 @@ td {
 }
 
 .primary-button,
-.button-link {
+.button-link,
+.secondary-button {
   display: inline-flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #ffb347, #ff7f3f);
   color: #132228;
   font-weight: 700;
+}
+
+.primary-button,
+.button-link {
+  background: linear-gradient(135deg, #ffb347, #ff7f3f);
+}
+
+.secondary-button {
+  background: linear-gradient(135deg, #7be4d1, #49baa8);
 }
 
 .ghost-button {
@@ -191,9 +217,19 @@ td {
   color: inherit;
 }
 
-.chip {
+.chip,
+.selected-player,
+.player-popup {
   background: rgba(248, 241, 231, 0.08);
   color: inherit;
+}
+
+.player-popup {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  text-align: left;
+  border-radius: 22px;
 }
 
 .chip-active,
@@ -209,7 +245,10 @@ td {
 .primary-button:hover,
 .button-link:hover,
 .ghost-button:hover,
-.chip:hover {
+.chip:hover,
+.secondary-button:hover,
+.selected-player:hover,
+.player-popup:hover {
   transform: translateY(-1px);
 }
 
@@ -230,7 +269,9 @@ td {
 .split-row,
 .form-row,
 .selection-summary,
-.action-row {
+.action-row,
+.bench-strip,
+.inline-form {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -247,12 +288,22 @@ td {
 
 .selection-summary {
   justify-content: flex-start;
+  align-items: baseline;
 }
 
-.chip-list {
+.selection-note {
+  color: rgba(248, 241, 231, 0.72);
+}
+
+.chip-list,
+.selected-player-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
+}
+
+.selected-player {
+  border: 1px solid rgba(65, 191, 170, 0.32);
 }
 
 .table-wrap {
@@ -267,7 +318,8 @@ td {
   color: #ffc980;
 }
 
-.muted-text {
+.muted-text,
+.popup-meta {
   color: rgba(248, 241, 231, 0.72);
 }
 
@@ -276,7 +328,12 @@ td {
   color: #ff9b9b;
 }
 
-.status-badge {
+.empty-state {
+  margin-top: 0.5rem;
+}
+
+.status-badge,
+.admin-tag {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -284,6 +341,18 @@ td {
   padding: 0.5rem 0.9rem;
   border-radius: 999px;
   font-size: 0.9rem;
+}
+
+.inline-tag {
+  min-width: 0;
+  margin-left: 0.55rem;
+  padding-inline: 0.75rem;
+}
+
+.admin-tag {
+  min-width: 0;
+  background: rgba(255, 200, 112, 0.18);
+  color: #ffd891;
 }
 
 .status-draft,
@@ -317,7 +386,9 @@ td {
   .topbar,
   .topbar-actions,
   .split-row,
-  .user-chip {
+  .user-chip,
+  .bench-strip,
+  .inline-form {
     flex-direction: column;
     align-items: stretch;
   }

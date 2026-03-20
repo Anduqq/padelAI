@@ -1,21 +1,20 @@
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from typing import Any
 
 import jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
 ALGORITHM = "HS256"
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
-    return password_context.hash(password)
+    return sha256(password.encode("utf-8")).hexdigest()
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return password_context.verify(password, password_hash)
+    return hash_password(password) == password_hash
 
 
 def create_access_token(subject: str) -> str:

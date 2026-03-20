@@ -24,7 +24,11 @@ from app.models import (
 )
 from app.schemas.requests import ScoreUpdateRequest, TournamentCreateRequest
 from app.services.leaderboards import compute_tournament_standings
-from app.services.round_generation import generate_americano_schedule, generate_mexicano_round
+from app.services.round_generation import (
+    generate_americano_schedule,
+    generate_mexicano_round,
+    get_schedule_capacity,
+)
 from app.ws.manager import manager
 
 router = APIRouter()
@@ -89,11 +93,19 @@ def _serialize_match(match: Match, player_map: dict[str, Player]) -> dict:
 
 
 def _serialize_round(round_row: Round, player_map: dict[str, Player]) -> dict:
+    metadata = dict(round_row.metadata_json or {})
+    bench_player_ids = [player_id for player_id in metadata.get("bench_player_ids", []) if player_id in player_map]
+    if metadata:
+        metadata["bench_players"] = [
+            {"player_id": player_id, "display_name": player_map[player_id].display_name}
+            for player_id in bench_player_ids
+        ]
+
     return {
         "id": round_row.id,
         "number": round_row.number,
         "status": round_row.status.value,
-        "metadata": round_row.metadata_json,
+        "metadata": metadata or None,
         "started_at": round_row.started_at,
         "completed_at": round_row.completed_at,
         "matches": [_serialize_match(match, player_map) for match in round_row.matches],
@@ -177,13 +189,19 @@ def _materialize_round(db: Session, tournament: Tournament, round_spec, status_v
     return round_row
 
 
-def _ensure_supported_participants(payload: TournamentCreateRequest, players: list[Player]) -> None:
+def _ensure_supported_participants(payload: TournamentCreateRequest, players: list[Player]):
     if len(players) != len(payload.participant_ids):
         raise HTTPException(status_code=404, detail="One or more players were not found.")
-    if len(payload.participant_ids) != payload.court_count * 4:
-        raise HTTPException(status_code=400, detail="V1 currently requires exactly four players per court.")
+
+    try:
+        capacity = get_schedule_capacity(payload.participant_ids, payload.court_count)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     if payload.format == TournamentFormat.MEXICANO.value and payload.target_rounds is None:
         raise HTTPException(status_code=400, detail="Mexicano tournaments require target_rounds.")
+
+    return capacity
 
 
 def _persist_round_completion(db: Session, tournament: Tournament, round_row: Round) -> None:
@@ -214,12 +232,12 @@ def create_tournament(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     players = db.execute(select(Player).where(Player.id.in_(payload.participant_ids))).scalars().all()
-    _ensure_supported_participants(payload, players)
+    capacity = _ensure_supported_participants(payload, players)
 
     tournament = Tournament(
         name=payload.name.strip(),
         format=TournamentFormat(payload.format),
-        court_count=payload.court_count,
+        court_count=capacity.active_courts,
         target_rounds=payload.target_rounds,
         created_by_user_id=current_user.id,
     )
@@ -312,7 +330,12 @@ async def start_tournament(
             round_status = RoundStatus.ACTIVE if round_spec.number == 1 else RoundStatus.PENDING
             _materialize_round(db, tournament, round_spec, round_status)
     else:
-        round_spec = generate_mexicano_round(participant_ids, tournament.court_count, round_number=1)
+        round_spec = generate_mexicano_round(
+            participant_ids,
+            tournament.court_count,
+            round_number=1,
+            previous_rounds_metadata=[],
+        )
         _materialize_round(db, tournament, round_spec, RoundStatus.ACTIVE)
 
     db.commit()
@@ -347,7 +370,12 @@ async def generate_next_round(
     if not player_ids:
         player_ids = [participant.player_id for participant in tournament.participants]
 
-    next_round_spec = generate_mexicano_round(player_ids, tournament.court_count, round_number=len(tournament.rounds) + 1)
+    next_round_spec = generate_mexicano_round(
+        player_ids,
+        tournament.court_count,
+        round_number=len(tournament.rounds) + 1,
+        previous_rounds_metadata=[round_row.metadata_json or {} for round_row in tournament.rounds],
+    )
     _materialize_round(db, tournament, next_round_spec, RoundStatus.ACTIVE)
     db.commit()
 

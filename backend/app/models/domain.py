@@ -4,7 +4,7 @@ import enum
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -38,6 +38,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str] = mapped_column(String(255))
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     player_profile: Mapped[Player | None] = relationship(back_populates="user", uselist=False)
