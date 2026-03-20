@@ -136,6 +136,12 @@ td {
   gap: 1.5rem;
 }
 
+.profile-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
 .dashboard-grid,
 .page-columns {
   display: grid;
@@ -178,7 +184,8 @@ td {
 .stat-card,
 .score-summary,
 .meta-tile,
-.score-preview {
+.score-preview,
+.stat-spotlight {
   display: grid;
   gap: 0.35rem;
 }
@@ -447,6 +454,60 @@ td {
 .error-text {
   margin: 0;
   color: #ff9b9b;
+}
+
+.profile-intro {
+  margin-bottom: 1rem;
+}
+
+.pie-stat-layout {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+}
+
+.pie-ring {
+  width: 9.5rem;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: 0.7rem;
+  border-radius: 50%;
+}
+
+.pie-ring-center {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  gap: 0.25rem;
+  border-radius: 50%;
+  background: rgba(15, 26, 32, 0.92);
+  text-align: center;
+}
+
+.pie-ring-center span {
+  color: rgba(248, 241, 231, 0.72);
+  font-size: 0.82rem;
+}
+
+.pie-legend {
+  width: 100%;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.legend-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.legend-swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 999px;
 }
 
 .empty-state {

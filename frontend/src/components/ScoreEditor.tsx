@@ -39,6 +39,18 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
     setLoserScore(americanoState.loserScore);
   }, [americanoState.loserScore, americanoState.winner, match.team_a_games, match.team_b_games]);
 
+  function submitAmericanoScore() {
+    if (winner === null || loserScore === null || americanoPointsTarget === null) {
+      return;
+    }
+
+    onSubmit({
+      team_a_games: winner === "team_a" ? americanoPointsTarget : loserScore,
+      team_b_games: winner === "team_b" ? americanoPointsTarget : loserScore,
+      version: match.version
+    });
+  }
+
   if (scoringSystem === "americano_points" && americanoPointsTarget !== null) {
     const canSubmit = winner !== null && loserScore !== null;
     const preview =
@@ -53,15 +65,7 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
         className="score-editor americano-editor"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!canSubmit) {
-            return;
-          }
-
-          onSubmit({
-            team_a_games: winner === "team_a" ? americanoPointsTarget : loserScore,
-            team_b_games: winner === "team_b" ? americanoPointsTarget : loserScore,
-            version: match.version
-          });
+          submitAmericanoScore();
         }}
       >
         <div className="winner-grid">
@@ -113,7 +117,12 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
           <strong className="score-field-value">{preview}</strong>
         </div>
 
-        <button type="submit" className="primary-button" disabled={disabled || !canSubmit}>
+        <button
+          type="button"
+          className="primary-button"
+          disabled={disabled || !canSubmit}
+          onClick={submitAmericanoScore}
+        >
           Save points
         </button>
       </form>

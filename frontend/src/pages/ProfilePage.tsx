@@ -3,6 +3,71 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { formatDate } from "../lib/format";
 
+interface PieSegment {
+  label: string;
+  value: number;
+  color: string;
+}
+
+function buildPieBackground(segments: PieSegment[]) {
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0);
+  if (total <= 0) {
+    return "conic-gradient(rgba(248, 241, 231, 0.12) 0deg 360deg)";
+  }
+
+  let currentDegrees = 0;
+  const parts: string[] = [];
+  for (const segment of segments) {
+    if (segment.value <= 0) {
+      continue;
+    }
+    const nextDegrees = currentDegrees + (segment.value / total) * 360;
+    parts.push(`${segment.color} ${currentDegrees}deg ${nextDegrees}deg`);
+    currentDegrees = nextDegrees;
+  }
+  return `conic-gradient(${parts.join(", ")})`;
+}
+
+function PieStatCard({
+  title,
+  subtitle,
+  totalLabel,
+  totalValue,
+  segments
+}: {
+  title: string;
+  subtitle: string;
+  totalLabel: string;
+  totalValue: string;
+  segments: PieSegment[];
+}) {
+  return (
+    <article className="panel stat-spotlight">
+      <div>
+        <p className="eyebrow">{title}</p>
+        <h3>{subtitle}</h3>
+      </div>
+      <div className="pie-stat-layout">
+        <div className="pie-ring" style={{ backgroundImage: buildPieBackground(segments) }}>
+          <div className="pie-ring-center">
+            <span>{totalLabel}</span>
+            <strong>{totalValue}</strong>
+          </div>
+        </div>
+        <div className="pie-legend">
+          {segments.map((segment) => (
+            <div key={segment.label} className="legend-row">
+              <span className="legend-swatch" style={{ backgroundColor: segment.color }} />
+              <span>{segment.label}</span>
+              <strong>{segment.value}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function ProfilePage() {
   const profileQuery = useQuery({
     queryKey: ["my-stats"],
@@ -18,30 +83,81 @@ export function ProfilePage() {
   }
 
   const profile = profileQuery.data;
+  const tournamentsPlayed = profile.stats.tournaments_played ?? profile.history.length;
+  const podiumFinishes = profile.history.filter((item) => item.placement !== null && item.placement <= 3).length;
+  const resultsSegments: PieSegment[] = [
+    { label: "Wins", value: profile.stats.wins, color: "#49baa8" },
+    { label: "Losses", value: profile.stats.losses, color: "#ff7f3f" },
+    { label: "Draws", value: profile.stats.draws, color: "#ffc980" }
+  ];
+  const gamesSegments: PieSegment[] = [
+    { label: "Games won", value: profile.stats.games_for, color: "#ffb347" },
+    { label: "Games against", value: profile.stats.games_against, color: "#27444a" }
+  ];
+  const formatSegments: PieSegment[] = [
+    {
+      label: "Americano",
+      value: profile.history.filter((item) => item.format === "americano").length,
+      color: "#a7fff1"
+    },
+    {
+      label: "Mexicano",
+      value: profile.history.filter((item) => item.format === "mexicano").length,
+      color: "#c5dcff"
+    }
+  ];
 
   return (
     <div className="stack-section">
       <section className="panel">
         <p className="eyebrow">My profile</p>
         <h2>{profile.display_name}</h2>
+        <p className="muted-text profile-intro">
+          Congrats, you have played {profile.stats.matches_played} matches, collected {profile.stats.points} all-time
+          points, and stepped into {tournamentsPlayed} tournaments so far.
+        </p>
         <div className="stat-grid">
           <div className="stat-card">
-            <span>Points</span>
-            <strong>{profile.stats.points}</strong>
+            <span className="stat-label">All-time points</span>
+            <strong className="stat-value">{profile.stats.points}</strong>
           </div>
           <div className="stat-card">
-            <span>Game diff</span>
-            <strong>{profile.stats.game_diff}</strong>
+            <span className="stat-label">Game diff</span>
+            <strong className="stat-value">{profile.stats.game_diff}</strong>
           </div>
           <div className="stat-card">
-            <span>Matches</span>
-            <strong>{profile.stats.matches_played}</strong>
+            <span className="stat-label">Matches</span>
+            <strong className="stat-value">{profile.stats.matches_played}</strong>
           </div>
           <div className="stat-card">
-            <span>Wins</span>
-            <strong>{profile.stats.wins}</strong>
+            <span className="stat-label">Podiums</span>
+            <strong className="stat-value">{podiumFinishes}</strong>
           </div>
         </div>
+      </section>
+
+      <section className="profile-chart-grid">
+        <PieStatCard
+          title="Results mix"
+          subtitle="How your matches break down"
+          totalLabel="Matches"
+          totalValue={String(profile.stats.matches_played)}
+          segments={resultsSegments}
+        />
+        <PieStatCard
+          title="Games share"
+          subtitle="All-time games for vs against"
+          totalLabel="Games"
+          totalValue={String(profile.stats.games_for + profile.stats.games_against)}
+          segments={gamesSegments}
+        />
+        <PieStatCard
+          title="Format split"
+          subtitle="Where you play most often"
+          totalLabel="Events"
+          totalValue={String(tournamentsPlayed)}
+          segments={formatSegments}
+        />
       </section>
 
       <section className="panel">
