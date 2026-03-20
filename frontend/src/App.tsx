@@ -26,7 +26,7 @@ function LoadingScreen() {
   return (
     <div className="screen-shell centered-screen">
       <div className="panel">
-        <p className="eyebrow">Padel By Claudiu</p>
+        <p className="eyebrow">IAR PADEL</p>
         <h1>Loading your club board</h1>
       </div>
     </div>

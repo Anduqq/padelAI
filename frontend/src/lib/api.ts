@@ -70,6 +70,10 @@ export const api = {
   getMyStats: () => request<PlayerStatsResponse>("/api/players/me/stats"),
   getTournaments: () => request<TournamentSummary[]>("/api/tournaments"),
   getTournament: (tournamentId: string) => request<TournamentDetail>(`/api/tournaments/${tournamentId}`),
+  deleteTournament: (tournamentId: string) =>
+    request<void>(`/api/tournaments/${tournamentId}`, {
+      method: "DELETE"
+    }),
   createTournament: (payload: {
     name: string;
     format: "americano" | "mexicano";

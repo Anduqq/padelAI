@@ -118,12 +118,12 @@ def test_resolve_tournament_scoring_uses_recommended_americano_target_when_missi
     assert config.americano_points_target == 17
 
 
-def test_validate_match_score_requires_exact_americano_total() -> None:
+def test_validate_match_score_requires_a_single_team_to_hit_the_americano_target() -> None:
     validate_match_score(
         scoring_system=AMERICANO_POINTS_SCORING,
         americano_points_target=17,
         team_a_score=9,
-        team_b_score=8,
+        team_b_score=17,
     )
 
     try:
@@ -131,12 +131,12 @@ def test_validate_match_score_requires_exact_americano_total() -> None:
             scoring_system=AMERICANO_POINTS_SCORING,
             americano_points_target=17,
             team_a_score=9,
-            team_b_score=9,
+            team_b_score=8,
         )
     except ValueError as exc:
-        assert "exactly 17" in str(exc)
+        assert "reach exactly 17" in str(exc)
     else:
-        raise AssertionError("Expected Americano validation to reject totals above the target.")
+        raise AssertionError("Expected Americano validation to reject scores without a team on the target.")
 
 
 def test_api_rejects_invalid_americano_points_score(client: TestClient, db_session: Session) -> None:
@@ -149,4 +149,4 @@ def test_api_rejects_invalid_americano_points_score(client: TestClient, db_sessi
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Americano scores must total exactly 17 points."
+    assert response.json()["detail"] == "One team must reach exactly 17 points in Americano scoring."

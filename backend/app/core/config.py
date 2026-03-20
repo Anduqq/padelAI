@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Padel By Claudiu"
+    app_name: str = "IAR PADEL"
     database_url: str | None = Field(default=None, alias="DATABASE_URL")
     postgres_db: str = Field(default="padel", alias="POSTGRES_DB")
     postgres_user: str = Field(default="padel", alias="POSTGRES_USER")

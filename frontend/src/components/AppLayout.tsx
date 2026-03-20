@@ -25,14 +25,14 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
   return (
     <div className="screen-shell">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Padel By Claudiu</p>
+        <div className="topbar-title">
+          <p className="eyebrow">IAR PADEL</p>
           <h1>Live tournament control</h1>
         </div>
         <div className="topbar-actions">
           <nav className="nav-pill">
             <NavLink to="/" end>
-              Dashboard
+              Tournaments
             </NavLink>
             <NavLink to="/leaderboard">Leaderboard</NavLink>
             <NavLink to="/profile">My Stats</NavLink>

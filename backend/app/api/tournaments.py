@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -370,6 +370,23 @@ def get_tournament(
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     return _serialize_tournament_detail(db, tournament)
+
+
+@router.delete("/{tournament_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_tournament(
+    tournament_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Response:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+    if tournament.status == TournamentStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Completed tournaments can only be viewed from the archive.")
+
+    db.delete(tournament)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{tournament_id}/start")

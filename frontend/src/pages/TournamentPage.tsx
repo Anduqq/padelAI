@@ -83,13 +83,10 @@ export function TournamentPage() {
   }
 
   const tournament = tournamentQuery.data;
-  const scoreLabel =
-    tournament.scoring_system === "americano_points" ? "Enter Americano points" : "Enter the final match score";
-  const scoreHint =
+  const scoringDescription =
     tournament.scoring_system === "americano_points" && tournament.americano_points_target
-      ? `total must equal ${tournament.americano_points_target}`
-      : "normal scoring";
-  const submitLabel = tournament.scoring_system === "americano_points" ? "Save points" : "Save score";
+      ? `First to ${tournament.americano_points_target}`
+      : "Classic";
 
   return (
     <div className="stack-section">
@@ -104,28 +101,24 @@ export function TournamentPage() {
 
         <div className="stat-grid">
           <div className="stat-card">
-            <span>Players</span>
-            <strong>{tournament.participants.length}</strong>
+            <span className="stat-label">Players</span>
+            <strong className="stat-value">{tournament.participants.length}</strong>
           </div>
           <div className="stat-card">
-            <span>Courts</span>
-            <strong>{tournament.court_count}</strong>
+            <span className="stat-label">Courts</span>
+            <strong className="stat-value">{tournament.court_count}</strong>
           </div>
           <div className="stat-card">
-            <span>Rounds target</span>
-            <strong>{tournament.target_rounds ?? "Auto"}</strong>
+            <span className="stat-label">Rounds target</span>
+            <strong className="stat-value">{tournament.target_rounds ?? "Auto"}</strong>
           </div>
           <div className="stat-card">
-            <span>Scoring</span>
-            <strong>
-              {tournament.scoring_system === "americano_points"
-                ? `Americano / ${tournament.americano_points_target}`
-                : "Classic"}
-            </strong>
+            <span className="stat-label">Scoring</span>
+            <strong className="stat-value">{scoringDescription}</strong>
           </div>
           <div className="stat-card">
-            <span>Started</span>
-            <strong>{formatDate(tournament.started_at)}</strong>
+            <span className="stat-label">Started</span>
+            <strong className="stat-value">{formatDate(tournament.started_at)}</strong>
           </div>
         </div>
 
@@ -235,9 +228,8 @@ export function TournamentPage() {
                         key={match.id}
                         match={match}
                         disabled={scoreMutation.isPending || unlockRoundMutation.isPending}
-                        scoreLabel={scoreLabel}
-                        scoreHint={scoreHint}
-                        submitLabel={submitLabel}
+                        scoringSystem={tournament.scoring_system}
+                        americanoPointsTarget={tournament.americano_points_target}
                         onSubmit={(payload) =>
                           scoreMutation.mutate({
                             matchId: match.id,

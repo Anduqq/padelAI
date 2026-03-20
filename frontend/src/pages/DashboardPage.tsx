@@ -152,6 +152,25 @@ export function DashboardPage() {
     }
   });
 
+  const startTournament = useMutation({
+    mutationFn: (tournamentId: string) => api.startTournament(tournamentId),
+    onSuccess: async (tournament) => {
+      await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+      startTransition(() => navigate(`/tournaments/${tournament.id}`));
+    }
+  });
+
+  const deleteTournament = useMutation({
+    mutationFn: (tournamentId: string) => api.deleteTournament(tournamentId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tournaments"] }),
+        queryClient.invalidateQueries({ queryKey: ["global-leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-stats"] })
+      ]);
+    }
+  });
+
   const createPlayer = useMutation({
     mutationFn: () => api.createPlayer({ display_name: newPlayerName }),
     onSuccess: async (player) => {
@@ -185,6 +204,14 @@ export function DashboardPage() {
     setName((current) => (current.trim().length === 0 || current === previousSuggested ? nextSuggested : current));
   }
 
+  function handleDeleteTournament(tournamentId: string, tournamentName: string) {
+    if (!window.confirm(`Delete ${tournamentName}? This will remove the current tournament board.`)) {
+      return;
+    }
+    deleteTournament.mutate(tournamentId);
+  }
+
+  const activeTournaments = tournamentsQuery.data?.filter((item) => item.status !== "completed") ?? [];
   const completedTournaments = tournamentsQuery.data?.filter((item) => item.status === "completed") ?? [];
 
   return (
@@ -219,6 +246,7 @@ export function DashboardPage() {
               <span>Courts</span>
               <input
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={8}
                 value={courtCount}
@@ -232,6 +260,7 @@ export function DashboardPage() {
               <span>Target rounds</span>
               <input
                 type="number"
+                inputMode="numeric"
                 min={1}
                 max={30}
                 value={targetRounds}
@@ -249,7 +278,7 @@ export function DashboardPage() {
                 </div>
                 <span className="muted-text">
                   {recommendedScoring.scoringSystem === "americano_points"
-                    ? "Americano points recommended"
+                    ? "First-to target recommended"
                     : "Classic scoring recommended"}
                 </span>
               </div>
@@ -268,9 +297,10 @@ export function DashboardPage() {
               </label>
               {scoringSystem === "americano_points" ? (
                 <label>
-                  <span>Points per match</span>
+                  <span>Points to win</span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={1}
                     max={99}
                     value={americanoPointsTarget}
@@ -287,8 +317,8 @@ export function DashboardPage() {
                 {selectionState.activePlayerCount === 4
                   ? "With 4 players, classic match scoring is usually the better default."
                   : recommendedScoring.americanoPointsTarget
-                    ? `Recommended target: ${recommendedScoring.americanoPointsTarget} points for ${selectionState.activePlayerCount} active players.`
-                    : "Choose the Americano points target you want to play to."}
+                    ? `Recommended target: first to ${recommendedScoring.americanoPointsTarget} for ${selectionState.activePlayerCount} active players.`
+                    : "Choose the Americano target score you want to race to."}
               </p>
             </div>
           ) : null}
@@ -396,13 +426,24 @@ export function DashboardPage() {
           <div className="split-row">
             <div>
               <p className="eyebrow">Active board</p>
-              <h2>Recent tournaments</h2>
+              <h2>Live and draft tournaments</h2>
             </div>
             <span className="muted-text">{tournamentsQuery.data?.length ?? 0} total</span>
           </div>
-          <div className="card-grid">
-            {tournamentsQuery.data?.map((tournament) => <TournamentCard key={tournament.id} tournament={tournament} />)}
+          <div id="active-tournaments" className="card-grid">
+            {activeTournaments.map((tournament) => (
+              <TournamentCard
+                key={tournament.id}
+                tournament={tournament}
+                busy={startTournament.isPending || deleteTournament.isPending}
+                onStart={(tournamentId) => startTournament.mutate(tournamentId)}
+                onDelete={(selectedTournament) => handleDeleteTournament(selectedTournament.id, selectedTournament.name)}
+              />
+            ))}
+            {activeTournaments.length === 0 ? <p className="muted-text">Draft and live tournaments will show up here.</p> : null}
           </div>
+          {startTournament.error ? <p className="error-text">{startTournament.error.message}</p> : null}
+          {deleteTournament.error ? <p className="error-text">{deleteTournament.error.message}</p> : null}
         </section>
 
         <section className="panel">

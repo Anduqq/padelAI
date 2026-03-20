@@ -61,5 +61,8 @@ def validate_match_score(
     if americano_points_target is None:
         raise ValueError("Americano points target is missing for this tournament.")
 
-    if team_a_score + team_b_score != americano_points_target:
-        raise ValueError(f"Americano scores must total exactly {americano_points_target} points.")
+    winner_hits_target = (team_a_score == americano_points_target) ^ (team_b_score == americano_points_target)
+    losing_score = min(team_a_score, team_b_score)
+
+    if not winner_hits_target or losing_score >= americano_points_target:
+        raise ValueError(f"One team must reach exactly {americano_points_target} points in Americano scoring.")
