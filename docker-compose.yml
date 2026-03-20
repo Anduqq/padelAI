@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-padel}
       POSTGRES_USER: ${POSTGRES_USER:-padel}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-padel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-padel} -d ${POSTGRES_DB:-padel}"]
       interval: 10s
@@ -23,8 +23,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-padel}:${POSTGRES_PASSWORD:-padel}@db:5432/${POSTGRES_DB:-padel}
-      SECRET_KEY: ${SECRET_KEY:-change-me-before-production}
+      POSTGRES_DB: ${POSTGRES_DB:-padel}
+      POSTGRES_USER: ${POSTGRES_USER:-padel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
       COOKIE_NAME: ${COOKIE_NAME:-padel_session}
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
