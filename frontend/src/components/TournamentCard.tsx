@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { Link } from "react-router-dom";
 
 import { formatDate, formatStatus } from "../lib/format";
@@ -11,6 +13,7 @@ interface TournamentCardProps {
 }
 
 export function TournamentCard({ tournament, busy = false, onStart, onDelete }: TournamentCardProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isCompleted = tournament.status === "completed";
 
   return (
@@ -23,7 +26,14 @@ export function TournamentCard({ tournament, busy = false, onStart, onDelete }: 
         <div className="tournament-card-actions">
           <span className={`status-badge status-${tournament.status}`}>{formatStatus(tournament.status)}</span>
           {!isCompleted ? (
-            <details className="context-menu-shell">
+            <details
+              className="context-menu-shell"
+              onToggle={(event) => {
+                if (!(event.currentTarget as HTMLDetailsElement).open) {
+                  setConfirmDelete(false);
+                }
+              }}
+            >
               <summary className="ghost-button menu-toggle">Menu</summary>
               <div className="context-menu">
                 <Link className="context-menu-item" to={`/tournaments/${tournament.id}`}>
@@ -40,14 +50,35 @@ export function TournamentCard({ tournament, busy = false, onStart, onDelete }: 
                   </button>
                 ) : null}
                 {onDelete ? (
-                  <button
-                    type="button"
-                    className="context-menu-item context-menu-item-danger"
-                    disabled={busy}
-                    onClick={() => onDelete(tournament)}
-                  >
-                    Delete tournament
-                  </button>
+                  confirmDelete ? (
+                    <>
+                      <button
+                        type="button"
+                        className="context-menu-item context-menu-item-danger"
+                        disabled={busy}
+                        onClick={() => onDelete(tournament)}
+                      >
+                        Confirm delete
+                      </button>
+                      <button
+                        type="button"
+                        className="context-menu-item"
+                        disabled={busy}
+                        onClick={() => setConfirmDelete(false)}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="context-menu-item context-menu-item-danger"
+                      disabled={busy}
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      Delete tournament
+                    </button>
+                  )
                 ) : null}
               </div>
             </details>

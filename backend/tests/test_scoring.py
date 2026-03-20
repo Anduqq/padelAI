@@ -150,3 +150,18 @@ def test_api_rejects_invalid_americano_points_score(client: TestClient, db_sessi
 
     assert response.status_code == 400
     assert response.json()["detail"] == "One team must reach exactly 17 points in Americano scoring."
+
+
+def test_api_accepts_valid_americano_points_score(client: TestClient, db_session: Session) -> None:
+    admin_user, match = _seed_active_americano_tournament(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    response = client.post(
+        f"/api/tournaments/matches/{match.id}/score",
+        json={"team_a_games": 17, "team_b_games": 12, "version": 1},
+    )
+
+    assert response.status_code == 200
+    db_session.refresh(match)
+    assert match.team_a_games == 17
+    assert match.team_b_games == 12

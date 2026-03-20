@@ -204,10 +204,7 @@ export function DashboardPage() {
     setName((current) => (current.trim().length === 0 || current === previousSuggested ? nextSuggested : current));
   }
 
-  function handleDeleteTournament(tournamentId: string, tournamentName: string) {
-    if (!window.confirm(`Delete ${tournamentName}? This will remove the current tournament board.`)) {
-      return;
-    }
+  function handleDeleteTournament(tournamentId: string) {
     deleteTournament.mutate(tournamentId);
   }
 
@@ -402,7 +399,7 @@ export function DashboardPage() {
                     className={selectedPlayers.includes(suggestion.player_id) ? "chip chip-active" : "chip"}
                     onClick={() => togglePlayer(suggestion.player_id)}
                   >
-                    {suggestion.display_name} - {suggestion.frequency}
+                    {suggestion.display_name}
                   </button>
                 ))}
               </div>
@@ -437,7 +434,7 @@ export function DashboardPage() {
                 tournament={tournament}
                 busy={startTournament.isPending || deleteTournament.isPending}
                 onStart={(tournamentId) => startTournament.mutate(tournamentId)}
-                onDelete={(selectedTournament) => handleDeleteTournament(selectedTournament.id, selectedTournament.name)}
+                onDelete={(selectedTournament) => handleDeleteTournament(selectedTournament.id)}
               />
             ))}
             {activeTournaments.length === 0 ? <p className="muted-text">Draft and live tournaments will show up here.</p> : null}

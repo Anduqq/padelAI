@@ -82,8 +82,15 @@ def select_player(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response) -> Response:
-    response.delete_cookie(key=settings.cookie_name, path="/")
+def logout() -> Response:
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(
+        key=settings.cookie_name,
+        path="/",
+        httponly=True,
+        secure=settings.secure_cookies,
+        samesite="lax",
+    )
     return response
 
 

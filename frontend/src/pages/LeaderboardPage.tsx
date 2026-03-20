@@ -20,6 +20,8 @@ export function LeaderboardPage() {
               <th>Player</th>
               <th>Tournaments</th>
               <th>Points</th>
+              <th>W</th>
+              <th>L</th>
               <th>Diff</th>
               <th>Matches</th>
             </tr>
@@ -31,6 +33,8 @@ export function LeaderboardPage() {
                 <td>{row.display_name}</td>
                 <td>{row.tournaments_played ?? 0}</td>
                 <td>{row.points}</td>
+                <td>{row.wins}</td>
+                <td>{row.losses}</td>
                 <td>{row.game_diff}</td>
                 <td>{row.matches_played}</td>
               </tr>

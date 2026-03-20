@@ -69,7 +69,10 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
             type="button"
             className={winner === "team_a" ? "winner-button winner-button-active" : "winner-button"}
             disabled={disabled}
-            onClick={() => setWinner("team_a")}
+            onClick={() => {
+              setWinner("team_a");
+              setLoserScore((current) => current ?? 0);
+            }}
           >
             <span className="score-field-label">Winner</span>
             <strong>{match.team_a.map((player) => player.display_name).join(" / ")}</strong>
@@ -78,7 +81,10 @@ export function ScoreEditor({ match, disabled, scoringSystem, americanoPointsTar
             type="button"
             className={winner === "team_b" ? "winner-button winner-button-active" : "winner-button"}
             disabled={disabled}
-            onClick={() => setWinner("team_b")}
+            onClick={() => {
+              setWinner("team_b");
+              setLoserScore((current) => current ?? 0);
+            }}
           >
             <span className="score-field-label">Winner</span>
             <strong>{match.team_b.map((player) => player.display_name).join(" / ")}</strong>

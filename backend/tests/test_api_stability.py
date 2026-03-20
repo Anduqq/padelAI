@@ -219,6 +219,20 @@ def test_auth_options_put_iar_first_and_allow_selection(client: TestClient, db_s
     assert response.json()["is_admin"] is True
 
 
+def test_logout_clears_the_session_cookie(client: TestClient, db_session: Session) -> None:
+    _, iar_player = _create_player(db_session, "IAR", is_admin=True)
+    db_session.commit()
+
+    response = client.post("/api/auth/select", json={"player_id": iar_player.id})
+    assert response.status_code == 200
+
+    response = client.post("/api/auth/logout")
+    assert response.status_code == 204
+
+    response = client.get("/api/auth/me")
+    assert response.status_code == 401
+
+
 def test_read_only_api_calls_do_not_mutate_tournament_leaderboard(client: TestClient, db_session: Session) -> None:
     admin_user, tournament = _seed_completed_tournament(db_session)
     client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
@@ -266,3 +280,20 @@ def test_delete_tournament_removes_non_completed_sessions(client: TestClient, db
     response = client.delete(f"/api/tournaments/{tournament.id}")
     assert response.status_code == 204
     assert db_session.get(Tournament, tournament.id) is None
+
+
+def test_delete_tournament_removes_active_sessions_with_related_rows(client: TestClient, db_session: Session) -> None:
+    admin_user, tournament, _ = _seed_unlockable_tournament(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    response = client.delete(f"/api/tournaments/{tournament.id}")
+    assert response.status_code == 204
+    assert db_session.get(Tournament, tournament.id) is None
+    assert db_session.execute(select(Round).where(Round.tournament_id == tournament.id)).scalars().all() == []
+    assert db_session.execute(select(Match).where(Match.tournament_id == tournament.id)).scalars().all() == []
+    assert (
+        db_session.execute(select(StandingsSnapshot).where(StandingsSnapshot.tournament_id == tournament.id))
+        .scalars()
+        .all()
+        == []
+    )

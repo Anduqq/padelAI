@@ -279,6 +279,17 @@ def _persist_round_completion(db: Session, tournament: Tournament, round_row: Ro
         tournament.completed_at = _utc_now()
 
 
+def _delete_tournament_dependencies(db: Session, tournament_id: str) -> None:
+    match_ids = db.execute(select(Match.id).where(Match.tournament_id == tournament_id)).scalars().all()
+    if match_ids:
+        db.execute(delete(ScoreAuditLog).where(ScoreAuditLog.match_id.in_(match_ids)))
+
+    db.execute(delete(StandingsSnapshot).where(StandingsSnapshot.tournament_id == tournament_id))
+    db.execute(delete(Match).where(Match.tournament_id == tournament_id))
+    db.execute(delete(Round).where(Round.tournament_id == tournament_id))
+    db.execute(delete(TournamentParticipant).where(TournamentParticipant.tournament_id == tournament_id))
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_tournament(
     payload: TournamentCreateRequest,
@@ -378,12 +389,13 @@ def delete_tournament(
     _: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = db.get(Tournament, tournament_id)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.status == TournamentStatus.COMPLETED:
         raise HTTPException(status_code=400, detail="Completed tournaments can only be viewed from the archive.")
 
+    _delete_tournament_dependencies(db, tournament.id)
     db.delete(tournament)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

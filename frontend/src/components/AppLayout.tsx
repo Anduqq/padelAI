@@ -17,7 +17,14 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
   const logoutMutation = useMutation({
     mutationFn: api.logout,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.setQueryData(["me"], null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["me"] }),
+        queryClient.removeQueries({ queryKey: ["tournament"] }),
+        queryClient.removeQueries({ queryKey: ["tournaments"] }),
+        queryClient.removeQueries({ queryKey: ["global-leaderboard"] }),
+        queryClient.removeQueries({ queryKey: ["my-stats"] })
+      ]);
       navigate("/login");
     }
   });
