@@ -9,6 +9,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.models import Match, Player, Tournament, TournamentParticipant
 
 
+def _coerce_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 def _player_base_row(player: Player) -> dict:
     return {
         "player_id": player.id,
@@ -130,15 +138,18 @@ def build_player_stats(db: Session, player_id: str) -> dict:
         tournament = participation.tournament
         standings = compute_tournament_standings(db, tournament.id)
         player_row = next((row for row in standings if row["player_id"] == player_id), None)
+        created_at = _coerce_utc(tournament.created_at)
+        started_at = _coerce_utc(tournament.started_at)
+        completed_at = _coerce_utc(tournament.completed_at)
         history.append(
             {
                 "tournament_id": tournament.id,
                 "tournament_name": tournament.name,
                 "format": tournament.format.value,
                 "status": tournament.status.value,
-                "created_at": tournament.created_at,
-                "started_at": tournament.started_at,
-                "completed_at": tournament.completed_at,
+                "created_at": created_at,
+                "started_at": started_at,
+                "completed_at": completed_at,
                 "placement": player_row["rank"] if player_row else None,
                 "points": player_row["points"] if player_row else 0,
             }
@@ -177,7 +188,7 @@ def build_player_suggestions(db: Session, limit: int = 12) -> list[dict]:
     for membership in memberships:
         row = by_player[membership.player_id]
         tournament = tournaments[membership.tournament_id]
-        played_at = tournament.started_at or tournament.created_at
+        played_at = _coerce_utc(tournament.started_at or tournament.created_at)
         row["frequency"] += 1
         if row["last_played_at"] is None or (played_at and played_at > row["last_played_at"]):
             row["last_played_at"] = played_at
