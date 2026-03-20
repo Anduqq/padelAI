@@ -38,6 +38,8 @@ textarea {
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 table {
@@ -98,9 +100,6 @@ td {
 }
 
 .topbar {
-  position: sticky;
-  top: 0.75rem;
-  z-index: 20;
   display: grid;
   gap: 1rem;
   padding: 1rem 1.1rem;
@@ -621,7 +620,10 @@ td {
 @media (max-width: 980px) {
   .auth-shell,
   .dashboard-grid,
-  .page-columns {
+  .page-columns,
+  .card-grid,
+  .hero-grid,
+  .profile-chart-grid {
     grid-template-columns: 1fr;
   }
 
@@ -639,5 +641,35 @@ td {
   .card-meta-grid,
   .score-chip-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .panel,
+  .hero-panel {
+    padding: 1.15rem;
+  }
+
+  .tournament-card-header,
+  .tournament-card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .context-menu {
+    position: static;
+    min-width: 0;
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .menu-toggle,
+  .button-link,
+  .primary-button,
+  .secondary-button,
+  .ghost-button {
+    width: 100%;
+  }
+
+  .screen-shell {
+    padding: calc(0.75rem + env(safe-area-inset-top)) 0.75rem calc(0.9rem + env(safe-area-inset-bottom));
   }
 }
