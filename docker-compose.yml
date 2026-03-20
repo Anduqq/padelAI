@@ -3,11 +3,11 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: padel
-      POSTGRES_USER: padel
-      POSTGRES_PASSWORD: padel
+      POSTGRES_DB: ${POSTGRES_DB:-padel}
+      POSTGRES_USER: ${POSTGRES_USER:-padel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-padel}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U padel -d padel"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-padel} -d ${POSTGRES_DB:-padel}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -23,7 +23,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://padel:padel@db:5432/padel}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-padel}:${POSTGRES_PASSWORD:-padel}@db:5432/${POSTGRES_DB:-padel}
       SECRET_KEY: ${SECRET_KEY:-change-me-before-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
       COOKIE_NAME: ${COOKIE_NAME:-padel_session}
