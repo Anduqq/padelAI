@@ -345,18 +345,18 @@ def _build_achievements(
     )
 
     definitions = [
-        ("welcome-board", "First night", "Joined the tournament board.", "\uD83C\uDFBE", tournaments_played >= 1),
-        ("first-win", "First win", "Picked up the first recorded win.", "\uD83D\uDD25", global_row["wins"] >= 1),
-        ("champion-night", "Champion's night", "Finished first in a tournament.", "\uD83C\uDFC6", champion_count >= 1),
-        ("podium-regular", "Podium regular", "Reached the podium five times.", "\uD83E\uDD47", podium_count >= 5),
-        ("ten-tournaments", "Ten tournaments", "Played ten tournaments.", "\uD83D\uDCC5", tournaments_played >= 10),
-        ("marathon-player", "Marathon player", "Played twenty-five tournaments.", "\uD83D\uDE80", tournaments_played >= 25),
-        ("centurion", "Centurion", "Crossed one hundred all-time points.", "\uD83D\uDCAF", global_row["points"] >= 100),
-        ("match-machine", "Match machine", "Played fifty recorded matches.", "\uD83D\uDEE0", global_row["matches_played"] >= 50),
-        ("hot-hand", "Hot hand", "Won five matches in a row.", "\uD83D\uDD25", streaks["best_win_streak"] >= 5),
+        ("welcome-board", "First night", "Joined the tournament board.", "\U0001F3BE", tournaments_played >= 1),
+        ("first-win", "First win", "Picked up the first recorded win.", "\U0001F525", global_row["wins"] >= 1),
+        ("champion-night", "Champion's night", "Finished first in a tournament.", "\U0001F3C6", champion_count >= 1),
+        ("podium-regular", "Podium regular", "Reached the podium five times.", "\U0001F947", podium_count >= 5),
+        ("ten-tournaments", "Ten tournaments", "Played ten tournaments.", "\U0001F4C5", tournaments_played >= 10),
+        ("marathon-player", "Marathon player", "Played twenty-five tournaments.", "\U0001F680", tournaments_played >= 25),
+        ("centurion", "Centurion", "Crossed one hundred all-time points.", "\U0001F4AF", global_row["points"] >= 100),
+        ("match-machine", "Match machine", "Played fifty recorded matches.", "\U0001F6E0", global_row["matches_played"] >= 50),
+        ("hot-hand", "Hot hand", "Won five matches in a row.", "\U0001F525", streaks["best_win_streak"] >= 5),
         ("undefeated-night", "Undefeated night", "Won a tournament without losing a match.", "\u2728", undefeated_night),
-        ("comeback-king", "Comeback king", "Climbed from outside the top three to a podium finish.", "\uD83D\uDC51", comeback_podium),
-        ("clutch-closer", "Clutch closer", "Won a bracket final.", "\uD83E\uDDE0", finals_won >= 1),
+        ("comeback-king", "Comeback king", "Climbed from outside the top three to a podium finish.", "\U0001F451", comeback_podium),
+        ("clutch-closer", "Clutch closer", "Won a bracket final.", "\U0001F9E0", finals_won >= 1),
     ]
 
     return [
