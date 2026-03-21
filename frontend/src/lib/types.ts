@@ -136,6 +136,7 @@ export interface TournamentDetail extends TournamentSummary {
   bracket_graph: Array<{
     round_id: string;
     title: string;
+    carryover_label?: string | null;
     matches: Array<{
       court_number: number;
       team_a_label: string;

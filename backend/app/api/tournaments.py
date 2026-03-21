@@ -198,14 +198,14 @@ def _build_seeded_bracket_teams(leaderboard: list[dict]) -> tuple[list[dict], li
         teams.append(
             {
                 "player_ids": [block[0]["player_id"], block[2]["player_id"]],
-                "label": f"#{block_start + 1} + #{block_start + 3}",
+                "label": f"{block[0]['display_name']} + {block[2]['display_name']}",
                 "seed_positions": [block_start + 1, block_start + 3],
             }
         )
         teams.append(
             {
                 "player_ids": [block[1]["player_id"], block[3]["player_id"]],
-                "label": f"#{block_start + 2} + #{block_start + 4}",
+                "label": f"{block[1]['display_name']} + {block[3]['display_name']}",
                 "seed_positions": [block_start + 2, block_start + 4],
             }
         )
@@ -372,6 +372,7 @@ def _build_bracket_graph(tournament: Tournament) -> list[dict] | None:
             {
                 "round_id": round_row.id,
                 "title": metadata.get("bracket_stage", f"Bracket round {len(graph) + 1}"),
+                "carryover_label": (metadata.get("carryover_team") or {}).get("label"),
                 "matches": matches,
             }
         )

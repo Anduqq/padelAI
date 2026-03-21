@@ -30,27 +30,11 @@ export function AuthPage() {
     ) ?? [];
 
   return (
-    <div className="screen-shell auth-shell">
-      <section className="hero-panel">
-        <p className="eyebrow">Padel tournament</p>
-        <h1>Pick a saved player and jump straight into the board.</h1>
-        <div className="hero-grid">
-          <div className="panel inset-panel">
-            <strong>Fast entry</strong>
-            <p>No email flow, no password reset loop, just a player pick list with your saved names.</p>
-          </div>
-          <div className="panel inset-panel">
-            <strong>Club continuity</strong>
-            <p>Player suggestions, private stats, and tournament history stay tied to the same saved profile.</p>
-          </div>
-        </div>
-      </section>
-
+    <div className="screen-shell centered-screen">
       <section className="panel auth-panel">
         <div className="split-row">
           <div>
-            <p className="eyebrow">Choose player</p>
-            <h2>Open your session</h2>
+            <h2>Choose player</h2>
           </div>
           <span className="muted-text">{optionsQuery.data?.length ?? 0} saved players</span>
         </div>

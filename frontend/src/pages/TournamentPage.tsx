@@ -6,7 +6,12 @@ import { useParams } from "react-router-dom";
 import { ScoreEditor } from "../components/ScoreEditor";
 import { api } from "../lib/api";
 import { formatDate, formatStatus } from "../lib/format";
-import type { TournamentDetail } from "../lib/types";
+import type { LeaderboardRow, TournamentDetail } from "../lib/types";
+
+const TROPHY_ICON = "\uD83C\uDFC6";
+const SILVER_ICON = "\uD83E\uDD48";
+const BRONZE_ICON = "\uD83E\uDD49";
+const BRACKET_ICON = "\uD83E\uDDE9";
 
 function resolveNextScrollTarget(tournament: TournamentDetail) {
   const activeRound = tournament.rounds.find((round) => round.status === "active");
@@ -18,36 +23,299 @@ function resolveNextScrollTarget(tournament: TournamentDetail) {
   return "tournament-actions";
 }
 
+function teamLabelLines(label: string) {
+  return label.split(" + ").map((item) => item.trim());
+}
+
+function placementLabel(rank: number, isCompleted: boolean) {
+  if (!isCompleted) {
+    return String(rank);
+  }
+
+  if (rank === 1) {
+    return "Champion";
+  }
+  if (rank === 2) {
+    return "Runner-up";
+  }
+  if (rank === 3) {
+    return "Third";
+  }
+
+  return String(rank);
+}
+
+function Podium({ leaderboard }: { leaderboard: LeaderboardRow[] }) {
+  const champion = leaderboard[0];
+  const runnerUp = leaderboard[1];
+  const thirdPlace = leaderboard[2];
+
+  if (!champion) {
+    return null;
+  }
+
+  return (
+    <section className="podium-panel">
+      <div className="split-row">
+        <div>
+          <p className="eyebrow">Final leaderboard</p>
+          <h3>Podium finish</h3>
+        </div>
+        <span className="podium-ribbon">
+          <span role="img" aria-label="trophy">
+            {TROPHY_ICON}
+          </span>{" "}
+          Finished
+        </span>
+      </div>
+
+      <article className="podium-hero">
+        <span className="podium-hero-icon" role="img" aria-label="trophy">
+          {TROPHY_ICON}
+        </span>
+        <div className="podium-hero-copy">
+          <span className="podium-hero-label">Champion</span>
+          <strong>{champion.display_name}</strong>
+          <span>
+            {champion.points} pts • {champion.wins}W {champion.losses}L
+          </span>
+        </div>
+      </article>
+
+      <div className="podium-grid">
+        {runnerUp ? (
+          <article className="podium-card podium-card-silver">
+            <span className="podium-card-icon" role="img" aria-label="silver medal">
+              {SILVER_ICON}
+            </span>
+            <span className="podium-card-label">Runner-up</span>
+            <strong>{runnerUp.display_name}</strong>
+            <span>
+              {runnerUp.points} pts • {runnerUp.wins}W {runnerUp.losses}L
+            </span>
+          </article>
+        ) : null}
+
+        {thirdPlace ? (
+          <article className="podium-card podium-card-bronze">
+            <span className="podium-card-icon" role="img" aria-label="bronze medal">
+              {BRONZE_ICON}
+            </span>
+            <span className="podium-card-label">Third place</span>
+            <strong>{thirdPlace.display_name}</strong>
+            <span>
+              {thirdPlace.points} pts • {thirdPlace.wins}W {thirdPlace.losses}L
+            </span>
+          </article>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function BracketGraph({ graph }: { graph: TournamentDetail["bracket_graph"] }) {
   if (!graph || graph.length === 0) {
     return null;
   }
 
+  const lastStage = graph[graph.length - 1];
+  const hasBronzeMatch = lastStage.title === "Finals" && lastStage.matches.length > 1;
+  const mainStages =
+    hasBronzeMatch ? [...graph.slice(0, -1), { ...lastStage, matches: lastStage.matches.slice(0, 1) }] : graph;
+  const bronzeMatch = hasBronzeMatch ? lastStage.matches[1] : null;
+
+  const teamBoxHeight = 52;
+  const teamGap = 14;
+  const boxWidth = 230;
+  const stageGap = 100;
+  const matchGap = 32;
+  const blockHeight = teamBoxHeight * 2 + teamGap;
+
+  const stageLayouts: Array<Array<{ topY: number; centerY: number }>> = [];
+  mainStages.forEach((stage, stageIndex) => {
+    if (stageIndex === 0) {
+      stageLayouts.push(
+        stage.matches.map((_, matchIndex) => {
+          const topY = 40 + matchIndex * (blockHeight + matchGap);
+          return {
+            topY,
+            centerY: topY + blockHeight / 2
+          };
+        })
+      );
+      return;
+    }
+
+    const previousStage = stageLayouts[stageIndex - 1];
+    stageLayouts.push(
+      stage.matches.map((_, matchIndex) => {
+        const firstSource = previousStage[Math.min(matchIndex * 2, previousStage.length - 1)];
+        const secondSource = previousStage[Math.min(matchIndex * 2 + 1, previousStage.length - 1)];
+        const centerY = (firstSource.centerY + secondSource.centerY) / 2;
+        return {
+          topY: centerY - blockHeight / 2,
+          centerY
+        };
+      })
+    );
+  });
+
+  const svgHeight =
+    Math.max(
+      blockHeight + 80,
+      ...stageLayouts.flat().map((layout) => layout.topY + blockHeight)
+    ) + 48;
+  const finalStageIndex = mainStages.length - 1;
+  const finalMatch = mainStages[finalStageIndex].matches[0];
+  const championCenterY = stageLayouts[finalStageIndex][0].centerY;
+  const championLabel =
+    finalMatch.team_a_score !== null &&
+    finalMatch.team_b_score !== null &&
+    finalMatch.team_a_score !== finalMatch.team_b_score
+      ? finalMatch.team_a_score > finalMatch.team_b_score
+        ? finalMatch.team_a_label
+        : finalMatch.team_b_label
+      : "Champion pending";
+  const championX = finalStageIndex * (boxWidth + stageGap) + boxWidth + stageGap;
+  const svgWidth = championX + 260;
+
   return (
     <section className="panel">
-      <p className="eyebrow">Bracket board 🧩</p>
-      <h3>Knockout view</h3>
-      <div className="bracket-board">
-        {graph.map((stage) => (
-          <article key={stage.round_id} className="bracket-column">
-            <strong>{stage.title}</strong>
-            <div className="bracket-match-stack">
-              {stage.matches.map((match) => (
-                <div key={`${stage.round_id}-${match.court_number}`} className="bracket-match">
-                  <div>
-                    <span>{match.team_a_label}</span>
-                    <strong>{match.team_a_score ?? "-"}</strong>
-                  </div>
-                  <div>
-                    <span>{match.team_b_label}</span>
-                    <strong>{match.team_b_score ?? "-"}</strong>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </article>
-        ))}
+      <div className="split-row">
+        <div>
+          <p className="eyebrow">
+            Bracket board{" "}
+            <span role="img" aria-label="bracket">
+              {BRACKET_ICON}
+            </span>
+          </p>
+          <h3>Knockout tree</h3>
+        </div>
       </div>
+
+      <div className="bracket-tree-wrap">
+        <svg className="bracket-tree" viewBox={`0 0 ${svgWidth} ${svgHeight}`} aria-label="Tournament bracket">
+          {mainStages.map((stage, stageIndex) => {
+            const stageX = stageIndex * (boxWidth + stageGap);
+            return (
+              <g key={stage.round_id}>
+                <text x={stageX} y={22} className="bracket-stage-title">
+                  {stage.title}
+                </text>
+
+                {stage.matches.map((match, matchIndex) => {
+                  const layout = stageLayouts[stageIndex][matchIndex];
+                  const nextStageLayouts = stageLayouts[stageIndex + 1];
+                  const currentRight = stageX + boxWidth;
+                  const topRowY = layout.topY;
+                  const bottomRowY = layout.topY + teamBoxHeight + teamGap;
+                  const topCenterY = topRowY + teamBoxHeight / 2;
+                  const bottomCenterY = bottomRowY + teamBoxHeight / 2;
+                  const targetIndex = nextStageLayouts ? Math.min(Math.floor(matchIndex / 2), nextStageLayouts.length - 1) : -1;
+                  const targetCenterY = targetIndex >= 0 ? nextStageLayouts[targetIndex].centerY : null;
+                  const elbowX = currentRight + stageGap / 2;
+
+                  return (
+                    <g key={`${stage.round_id}-${match.court_number}`}>
+                      <rect x={stageX} y={topRowY} width={boxWidth} height={teamBoxHeight} rx={14} className="bracket-box" />
+                      <rect
+                        x={stageX}
+                        y={bottomRowY}
+                        width={boxWidth}
+                        height={teamBoxHeight}
+                        rx={14}
+                        className="bracket-box"
+                      />
+
+                      <text x={stageX + 14} y={topRowY + 20} className="bracket-label">
+                        {teamLabelLines(match.team_a_label).map((line, lineIndex) => (
+                          <tspan key={`${stage.round_id}-${match.court_number}-a-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>
+                            {line}
+                          </tspan>
+                        ))}
+                      </text>
+                      <text x={stageX + 14} y={bottomRowY + 20} className="bracket-label">
+                        {teamLabelLines(match.team_b_label).map((line, lineIndex) => (
+                          <tspan key={`${stage.round_id}-${match.court_number}-b-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>
+                            {line}
+                          </tspan>
+                        ))}
+                      </text>
+
+                      <text x={stageX + boxWidth - 18} y={topRowY + 31} textAnchor="end" className="bracket-score">
+                        {match.team_a_score ?? "-"}
+                      </text>
+                      <text x={stageX + boxWidth - 18} y={bottomRowY + 31} textAnchor="end" className="bracket-score">
+                        {match.team_b_score ?? "-"}
+                      </text>
+
+                      {targetCenterY !== null ? (
+                        <>
+                          <path
+                            className="bracket-connector"
+                            d={`M ${currentRight} ${topCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`}
+                          />
+                          <path
+                            className="bracket-connector"
+                            d={`M ${currentRight} ${bottomCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`}
+                          />
+                        </>
+                      ) : null}
+                    </g>
+                  );
+                })}
+
+                {stage.carryover_label ? (
+                  <g>
+                    <rect
+                      x={stageX}
+                      y={svgHeight - 66}
+                      width={boxWidth}
+                      height={44}
+                      rx={14}
+                      className="bracket-bye-box"
+                    />
+                    <text x={stageX + 14} y={svgHeight - 38} className="bracket-bye-label">
+                      Bye: {stage.carryover_label}
+                    </text>
+                  </g>
+                ) : null}
+              </g>
+            );
+          })}
+
+          <g>
+            <rect x={championX} y={championCenterY - 42} width={210} height={84} rx={18} className="bracket-champion-box" />
+            <text x={championX + 105} y={championCenterY - 12} textAnchor="middle" className="bracket-champion-title">
+              Champion
+            </text>
+            <text x={championX + 105} y={championCenterY + 4} textAnchor="middle" className="bracket-champion-name">
+              {teamLabelLines(championLabel).map((line, lineIndex) => (
+                <tspan key={`champion-${lineIndex}`} x={championX + 105} dy={lineIndex === 0 ? 0 : 15}>
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          </g>
+        </svg>
+      </div>
+
+      {bronzeMatch ? (
+        <article className="small-final-card">
+          <div className="split-row">
+            <strong>Bronze match</strong>
+            <span className="muted-text">Small final</span>
+          </div>
+          <div className="small-final-score">
+            <span>{bronzeMatch.team_a_label}</span>
+            <strong>{bronzeMatch.team_a_score ?? "-"}</strong>
+          </div>
+          <div className="small-final-score">
+            <span>{bronzeMatch.team_b_label}</span>
+            <strong>{bronzeMatch.team_b_score ?? "-"}</strong>
+          </div>
+        </article>
+      ) : null}
     </section>
   );
 }
@@ -57,6 +325,7 @@ export function TournamentPage() {
   const queryClient = useQueryClient();
   const [pendingScrollTarget, setPendingScrollTarget] = useState<string | null>(null);
   const hasHandledInitialHash = useRef(false);
+
   const tournamentQuery = useQuery({
     queryKey: ["tournament", tournamentId],
     queryFn: () => api.getTournament(tournamentId),
@@ -258,12 +527,14 @@ export function TournamentPage() {
               ))}
             </div>
           </div>
+
           <div className="action-row">
             {tournament.status === "draft" ? (
               <button type="button" className="primary-button" onClick={() => startMutation.mutate()}>
-                {startMutation.isPending ? "Starting..." : "Start tournament ▶️"}
+                {startMutation.isPending ? "Starting..." : "Start tournament"}
               </button>
             ) : null}
+
             {tournament.status === "active" ? (
               <button
                 type="button"
@@ -278,12 +549,13 @@ export function TournamentPage() {
                 }
                 onClick={() => finishTournamentMutation.mutate()}
               >
-                {finishTournamentMutation.isPending ? "Finishing..." : "Finish tournament 🏁"}
+                {finishTournamentMutation.isPending ? "Finishing..." : "Finish tournament"}
               </button>
             ) : null}
+
             {tournament.can_generate_next_round ? (
               <button type="button" className="primary-button" onClick={() => nextRoundMutation.mutate()}>
-                {nextRoundMutation.isPending ? "Generating..." : "Generate next Mexicano round ➡️"}
+                {nextRoundMutation.isPending ? "Generating..." : "Generate next Mexicano round"}
               </button>
             ) : null}
           </div>
@@ -292,12 +564,13 @@ export function TournamentPage() {
 
       {tournament.status === "active" && !activeRound ? (
         <section id="tournament-actions" className="panel action-panel">
-          <p className="eyebrow">What next? 🧭</p>
-          <h3>Choose how you want to wrap up the session</h3>
+          <p className="eyebrow">What next?</p>
+          <h3>Choose the next step</h3>
           <p className="muted-text">
-            Finish now, continue the Americano rotations, move into the next Mexicano round, or launch and advance a
-            seeded bracket built as 1 + 3 vs 2 + 4, 5 + 7 vs 6 + 8, and so on.
+            Finish the tournament now, continue the Americano rotation, move into the next Mexicano round, or start a
+            seeded bracket built from the standings.
           </p>
+
           <div className="action-row">
             <button
               type="button"
@@ -311,8 +584,9 @@ export function TournamentPage() {
               }
               onClick={() => finishTournamentMutation.mutate()}
             >
-              {finishTournamentMutation.isPending ? "Finishing..." : "Finish tournament 🏁"}
+              {finishTournamentMutation.isPending ? "Finishing..." : "Finish tournament"}
             </button>
+
             {tournament.can_continue_americano ? (
               <button
                 type="button"
@@ -320,9 +594,10 @@ export function TournamentPage() {
                 disabled={continueAmericanoMutation.isPending || finishTournamentMutation.isPending}
                 onClick={() => continueAmericanoMutation.mutate()}
               >
-                {continueAmericanoMutation.isPending ? "Building..." : "Continue rotations 🔁"}
+                {continueAmericanoMutation.isPending ? "Building..." : "Continue rotations"}
               </button>
             ) : null}
+
             {tournament.can_generate_next_round ? (
               <button
                 type="button"
@@ -330,9 +605,10 @@ export function TournamentPage() {
                 disabled={nextRoundMutation.isPending || finishTournamentMutation.isPending}
                 onClick={() => nextRoundMutation.mutate()}
               >
-                {nextRoundMutation.isPending ? "Generating..." : "Continue with next round ➡️"}
+                {nextRoundMutation.isPending ? "Generating..." : "Continue with next round"}
               </button>
             ) : null}
+
             {tournament.can_start_bracket ? (
               <button
                 type="button"
@@ -340,9 +616,10 @@ export function TournamentPage() {
                 disabled={startBracketMutation.isPending || finishTournamentMutation.isPending}
                 onClick={() => startBracketMutation.mutate()}
               >
-                {startBracketMutation.isPending ? "Building bracket..." : "Start brackets 🧩"}
+                {startBracketMutation.isPending ? "Building bracket..." : "Start brackets"}
               </button>
             ) : null}
+
             {tournament.can_continue_bracket ? (
               <button
                 type="button"
@@ -350,7 +627,7 @@ export function TournamentPage() {
                 disabled={continueBracketMutation.isPending || finishTournamentMutation.isPending}
                 onClick={() => continueBracketMutation.mutate()}
               >
-                {continueBracketMutation.isPending ? "Advancing..." : "Continue bracket 🏆"}
+                {continueBracketMutation.isPending ? "Advancing..." : "Continue bracket"}
               </button>
             ) : null}
           </div>
@@ -361,13 +638,16 @@ export function TournamentPage() {
 
       <section className="page-columns">
         <section id="tournament-leaderboard" className="panel">
-          <p className="eyebrow">Tournament leaderboard 🏆</p>
-          <h3>Current standings</h3>
+          <p className="eyebrow">Tournament leaderboard</p>
+          <h3>{tournament.status === "completed" ? "Final standings" : "Current standings"}</h3>
+
+          {tournament.status === "completed" ? <Podium leaderboard={tournament.leaderboard} /> : null}
+
           <div className="table-wrap">
             <table className="leaderboard-table">
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th>Place</th>
                   <th className="leaderboard-player-cell">Player</th>
                   <th>Points</th>
                   <th>Diff</th>
@@ -378,7 +658,7 @@ export function TournamentPage() {
               <tbody>
                 {tournament.leaderboard.map((row) => (
                   <tr key={row.player_id}>
-                    <td>{row.rank}</td>
+                    <td className="leaderboard-place-cell">{placementLabel(row.rank, tournament.status === "completed")}</td>
                     <td className="leaderboard-player-cell">{row.display_name}</td>
                     <td>{row.points}</td>
                     <td>{row.game_diff}</td>
@@ -392,8 +672,9 @@ export function TournamentPage() {
         </section>
 
         <section id="live-rounds" className="panel">
-          <p className="eyebrow">Live rounds 📲</p>
+          <p className="eyebrow">Live rounds</p>
           <h3>Score input</h3>
+
           <div className="round-stack">
             {tournament.rounds.map((round) => (
               <article key={round.id} className="round-card">
@@ -475,6 +756,7 @@ export function TournamentPage() {
               </article>
             ))}
           </div>
+
           {scoreMutation.error ? <p className="error-text">{scoreMutation.error.message}</p> : null}
           {unlockRoundMutation.error ? <p className="error-text">{unlockRoundMutation.error.message}</p> : null}
           {finishTournamentMutation.error ? <p className="error-text">{finishTournamentMutation.error.message}</p> : null}

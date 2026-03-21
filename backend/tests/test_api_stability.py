@@ -591,6 +591,8 @@ def test_start_bracket_builds_a_seeded_knockout_round(client: TestClient, db_ses
     assert bracket_round["metadata"]["bracket_stage"] == "Semifinals"
     assert len(bracket_round["matches"]) == 2
     assert payload["bracket_graph"][0]["title"] == "Semifinals"
+    assert "#" not in payload["bracket_graph"][0]["matches"][0]["team_a_label"]
+    assert " + " in payload["bracket_graph"][0]["matches"][0]["team_a_label"]
 
 
 def test_continue_bracket_builds_finals_and_small_final(client: TestClient, db_session: Session) -> None:
