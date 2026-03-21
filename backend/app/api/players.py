@@ -24,6 +24,24 @@ def _serialize_player(player: Player) -> dict:
     }
 
 
+async def _store_avatar(
+    *,
+    player: Player,
+    db: Session,
+    avatar: UploadFile,
+) -> dict:
+    content = await avatar.read()
+    try:
+        extension = validate_avatar_upload(avatar, content)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    player.avatar_path = replace_player_avatar(player.id, extension, content)
+    db.commit()
+    db.refresh(player)
+    return _serialize_player(player)
+
+
 @router.get("")
 def list_players(
     _: Annotated[User, Depends(get_current_user)],
@@ -59,16 +77,24 @@ async def upload_my_avatar(
     if player is None:
         raise HTTPException(status_code=404, detail="Player profile not found.")
 
-    content = await avatar.read()
-    try:
-        extension = validate_avatar_upload(avatar, content)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return await _store_avatar(player=player, db=db, avatar=avatar)
 
-    player.avatar_path = replace_player_avatar(player.id, extension, content)
-    db.commit()
-    db.refresh(player)
-    return _serialize_player(player)
+
+@router.post("/{player_id}/avatar")
+async def upload_player_avatar(
+    player_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    avatar: UploadFile = File(...),
+) -> dict:
+    if not current_user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
+
+    player = db.get(Player, player_id)
+    if player is None:
+        raise HTTPException(status_code=404, detail="Player profile not found.")
+
+    return await _store_avatar(player=player, db=db, avatar=avatar)
 
 
 @router.get("/suggestions")

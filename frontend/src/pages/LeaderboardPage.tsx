@@ -10,8 +10,6 @@ export function LeaderboardPage() {
     queryFn: api.getGlobalLeaderboard
   });
 
-  const leader = leaderboardQuery.data?.[0];
-
   return (
     <section className="panel stack-section">
       <div className="split-row">
@@ -19,20 +17,6 @@ export function LeaderboardPage() {
           <p className="eyebrow">All-time table</p>
           <h2>Global leaderboard</h2>
         </div>
-        {leader ? (
-          <div className="leader-highlight">
-            <AvatarBadge
-              name={leader.display_name}
-              seed={leader.player_id}
-              avatarUrl={leader.avatar_url}
-              size="md"
-            />
-            <div>
-              <span className="meta-label">Top spot</span>
-              <strong>{leader.display_name}</strong>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {leaderboardQuery.data && leaderboardQuery.data.length > 0 ? (

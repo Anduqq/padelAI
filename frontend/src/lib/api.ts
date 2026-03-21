@@ -76,6 +76,14 @@ export const api = {
       body: formData
     });
   },
+  uploadPlayerAvatar: (playerId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return request<PlayerSummary>(`/api/players/${playerId}/avatar`, {
+      method: "POST",
+      body: formData
+    });
+  },
   getSuggestions: () => request<SuggestionRow[]>("/api/players/suggestions"),
   getMyStats: () => request<PlayerStatsResponse>("/api/players/me/stats"),
   getHeadToHead: (playerAId: string, playerBId: string) =>

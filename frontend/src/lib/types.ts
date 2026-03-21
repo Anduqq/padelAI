@@ -175,6 +175,7 @@ export interface AchievementTag {
   title: string;
   description: string;
   icon: string;
+  unlocked: boolean;
 }
 
 export interface PlayerStatsHistoryRow {

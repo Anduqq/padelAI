@@ -1,3 +1,5 @@
+import { useDeferredValue, useState } from "react";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -11,6 +13,14 @@ interface PieSegment {
   value: number;
   color: string;
 }
+
+const TROPHY_ICON = "\uD83C\uDFC6";
+const SILVER_ICON = "\uD83E\uDD48";
+const BRONZE_ICON = "\uD83E\uDD49";
+const SPARKLE_ICON = "\u2728";
+const LOCK_ICON = "\uD83D\uDD12";
+const ADMIN_CAMERA_ICON = "\uD83D\uDCF8";
+const HISTORY_ICON = "\uD83D\uDCDA";
 
 function buildPieBackground(segments: PieSegment[]) {
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
@@ -100,7 +110,7 @@ function ChemistryCard({
           <div>
             <strong>{row.display_name}</strong>
             <p className="muted-text">
-              {row.matches} matches • {row.wins}W {row.losses}L • {row.win_rate}% win rate
+              {row.matches} matches | {row.wins}W {row.losses}L | {row.win_rate}% win rate
             </p>
           </div>
         </div>
@@ -113,23 +123,53 @@ function ChemistryCard({
 
 export function ProfilePage() {
   const queryClient = useQueryClient();
+  const [playerSearch, setPlayerSearch] = useState("");
+  const deferredPlayerSearch = useDeferredValue(playerSearch.trim().toLowerCase());
+  const [activeAdminUploadPlayerId, setActiveAdminUploadPlayerId] = useState<string | null>(null);
+
+  const currentUserQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: api.getCurrentUser
+  });
+
   const profileQuery = useQuery({
     queryKey: ["my-stats"],
     queryFn: api.getMyStats
   });
 
+  const playersQuery = useQuery({
+    queryKey: ["players"],
+    queryFn: api.getPlayers,
+    enabled: currentUserQuery.data?.is_admin === true
+  });
+
+  const refreshPhotoQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["my-stats"] }),
+      queryClient.invalidateQueries({ queryKey: ["me"] }),
+      queryClient.invalidateQueries({ queryKey: ["players"] }),
+      queryClient.invalidateQueries({ queryKey: ["login-options"] }),
+      queryClient.invalidateQueries({ queryKey: ["global-leaderboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["elo-leaderboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["tournament"] }),
+      queryClient.invalidateQueries({ queryKey: ["tournaments"] }),
+      queryClient.invalidateQueries({ queryKey: ["head-to-head"] })
+    ]);
+  };
+
   const uploadAvatarMutation = useMutation({
     mutationFn: (file: File) => api.uploadMyAvatar(file),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["my-stats"] }),
-        queryClient.invalidateQueries({ queryKey: ["me"] }),
-        queryClient.invalidateQueries({ queryKey: ["players"] }),
-        queryClient.invalidateQueries({ queryKey: ["login-options"] }),
-        queryClient.invalidateQueries({ queryKey: ["global-leaderboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["elo-leaderboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["tournament"] })
-      ]);
+    onSuccess: refreshPhotoQueries
+  });
+
+  const adminUploadAvatarMutation = useMutation({
+    mutationFn: ({ playerId, file }: { playerId: string; file: File }) => api.uploadPlayerAvatar(playerId, file),
+    onMutate: async ({ playerId }) => {
+      setActiveAdminUploadPlayerId(playerId);
+    },
+    onSuccess: refreshPhotoQueries,
+    onSettled: async () => {
+      setActiveAdminUploadPlayerId(null);
     }
   });
 
@@ -149,9 +189,14 @@ export function ProfilePage() {
     { label: "Draws", value: profile.stats.draws, color: "#ffc980" }
   ];
   const gameBalanceSegments: PieSegment[] = [
-    { label: "Games won", value: profile.stats.games_for, color: "#7be4d1" },
-    { label: "Games conceded", value: profile.stats.games_against, color: "#27444a" }
+    { label: "Points won", value: profile.stats.games_for, color: "#7be4d1" },
+    { label: "Points allowed", value: profile.stats.games_against, color: "#27444a" }
   ];
+  const unlockedBadges = profile.achievements.filter((achievement) => achievement.unlocked).length;
+  const manageablePlayers =
+    playersQuery.data?.filter((player) =>
+      player.display_name.toLowerCase().includes(deferredPlayerSearch)
+    ) ?? [];
 
   return (
     <div className="stack-section">
@@ -168,7 +213,7 @@ export function ProfilePage() {
             <h2>{profile.display_name}</h2>
             <div className="action-row">
               <label className="ghost-button upload-button">
-                {uploadAvatarMutation.isPending ? "Uploading..." : "Upload photo"}
+                {uploadAvatarMutation.isPending ? "Uploading..." : "Upload my photo"}
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -211,6 +256,64 @@ export function ProfilePage() {
         </div>
       </section>
 
+      {currentUserQuery.data?.is_admin ? (
+        <section className="panel stack-section">
+          <div className="split-row">
+            <div>
+              <p className="eyebrow">Admin tools</p>
+              <h3>Player photo desk</h3>
+            </div>
+            <span className="muted-text">
+              <span aria-hidden="true">{ADMIN_CAMERA_ICON}</span> Upload avatars for everyone
+            </span>
+          </div>
+
+          <label className="stack-form">
+            <span>Find player</span>
+            <input
+              value={playerSearch}
+              placeholder="Filter by player name"
+              onChange={(event) => setPlayerSearch(event.target.value)}
+            />
+          </label>
+
+          {adminUploadAvatarMutation.error ? <p className="error-text">{adminUploadAvatarMutation.error.message}</p> : null}
+
+          <div className="admin-photo-grid">
+            {manageablePlayers.map((player) => (
+              <article key={player.id} className="admin-photo-card">
+                <div className="player-row">
+                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="md" />
+                  <div>
+                    <strong>{player.display_name}</strong>
+                    {player.id === profile.player_id ? <p className="muted-text">Current profile</p> : null}
+                  </div>
+                </div>
+
+                <label className="ghost-button upload-button">
+                  {activeAdminUploadPlayerId === player.id && adminUploadAvatarMutation.isPending
+                    ? "Uploading..."
+                    : "Upload photo"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    hidden
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) {
+                        return;
+                      }
+                      adminUploadAvatarMutation.mutate({ playerId: player.id, file });
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                </label>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="profile-chart-grid">
         <PieStatCard
           title="Results mix"
@@ -220,8 +323,8 @@ export function ProfilePage() {
           segments={resultsSegments}
         />
         <PieStatCard
-          title="Game balance"
-          subtitle="Points scored versus points allowed"
+          title="Point balance"
+          subtitle="Points won versus points allowed"
           totalLabel="Diff"
           totalValue={String(profile.stats.game_diff)}
           segments={gameBalanceSegments}
@@ -263,28 +366,28 @@ export function ProfilePage() {
         <div className="trophy-shelf">
           <article className="trophy-card">
             <span className="trophy-icon" aria-hidden="true">
-              🏆
+              {TROPHY_ICON}
             </span>
             <strong>{profile.trophies.champion}</strong>
             <span>Championships</span>
           </article>
           <article className="trophy-card">
             <span className="trophy-icon" aria-hidden="true">
-              🥈
+              {SILVER_ICON}
             </span>
             <strong>{profile.trophies.runner_up}</strong>
             <span>Runner-up</span>
           </article>
           <article className="trophy-card">
             <span className="trophy-icon" aria-hidden="true">
-              🥉
+              {BRONZE_ICON}
             </span>
             <strong>{profile.trophies.third_place}</strong>
             <span>Third place</span>
           </article>
           <article className="trophy-card">
             <span className="trophy-icon" aria-hidden="true">
-              ✨
+              {SPARKLE_ICON}
             </span>
             <strong>{profile.trophies.podiums}</strong>
             <span>Total podiums</span>
@@ -293,29 +396,39 @@ export function ProfilePage() {
       </section>
 
       <section className="panel stack-section">
-        <div>
-          <p className="eyebrow">Achievement tags</p>
-          <h3>Club badges</h3>
-        </div>
-        {profile.achievements.length > 0 ? (
-          <div className="achievement-grid">
-            {profile.achievements.map((achievement) => (
-              <article key={achievement.slug} className="achievement-card">
-                <span className="achievement-icon" aria-hidden="true">
-                  {achievement.icon}
-                </span>
-                <strong>{achievement.title}</strong>
-                <p className="muted-text">{achievement.description}</p>
-              </article>
-            ))}
+        <div className="split-row">
+          <div>
+            <p className="eyebrow">Achievement tags</p>
+            <h3>Club badges</h3>
           </div>
-        ) : (
-          <EmptyState
-            icon="🌱"
-            title="Badges will start stacking soon"
-            description="Keep playing and the club tags will begin to unlock here."
-          />
-        )}
+          <div className="streak-chip">
+            <span>Unlocked</span>
+            <strong>
+              {unlockedBadges}/{profile.achievements.length}
+            </strong>
+          </div>
+        </div>
+        <div className="achievement-grid">
+          {profile.achievements.map((achievement) => (
+            <article
+              key={achievement.slug}
+              className={`achievement-card ${achievement.unlocked ? "" : "achievement-card-locked"}`}
+            >
+              <div className="split-row">
+                <span className="achievement-icon" aria-hidden="true">
+                  {achievement.unlocked ? achievement.icon : LOCK_ICON}
+                </span>
+                <span
+                  className={`achievement-status ${achievement.unlocked ? "achievement-status-live" : "achievement-status-locked"}`}
+                >
+                  {achievement.unlocked ? "Unlocked" : "Locked"}
+                </span>
+              </div>
+              <strong>{achievement.title}</strong>
+              <p className="muted-text">{achievement.description}</p>
+            </article>
+          ))}
+        </div>
       </section>
 
       <section className="panel">
@@ -355,7 +468,7 @@ export function ProfilePage() {
           </div>
         ) : (
           <EmptyState
-            icon="📚"
+            icon={HISTORY_ICON}
             title="No tournament history yet"
             description="Once you finish a few nights on court, the recent history table will start filling up."
           />

@@ -101,12 +101,14 @@ def test_my_stats_exposes_chemistry_achievements_and_elo(client: TestClient, db_
     assert payload["chemistry"]["best_partner"]["display_name"] == "Ada"
     assert payload["chemistry"]["hardest_opponent"]["display_name"] in {"Ben", "Cris"}
     assert payload["elo_rating"] > 1000
-    assert {achievement["slug"] for achievement in payload["achievements"]} >= {
+    unlocked = {achievement["slug"] for achievement in payload["achievements"] if achievement["unlocked"]}
+    assert unlocked >= {
         "welcome-board",
         "first-win",
         "champion-night",
         "clutch-closer",
     }
+    assert any(achievement["slug"] == "triple-crown" and achievement["unlocked"] is False for achievement in payload["achievements"])
 
 
 def test_elo_leaderboard_rewards_the_winning_team(client: TestClient, db_session: Session) -> None:
@@ -144,4 +146,18 @@ def test_avatar_upload_updates_the_current_player(client: TestClient, db_session
         files={"avatar": ("avatar.png", PNG_PIXEL, "image/png")},
     )
     assert response.status_code == 200
+    assert response.json()["avatar_url"].startswith("/media/avatars/")
+
+
+def test_admin_can_upload_another_players_avatar(client: TestClient, db_session: Session, tmp_path, monkeypatch) -> None:
+    admin_user, (_, ada, _, _) = _seed_completed_session(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+    monkeypatch.setattr(settings, "media_dir_override", str(tmp_path))
+
+    response = client.post(
+        f"/api/players/{ada.id}/avatar",
+        files={"avatar": ("avatar.png", PNG_PIXEL, "image/png")},
+    )
+    assert response.status_code == 200
+    assert response.json()["id"] == ada.id
     assert response.json()["avatar_url"].startswith("/media/avatars/")

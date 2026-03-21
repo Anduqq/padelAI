@@ -334,10 +334,20 @@ def _build_achievements(
     streaks: dict,
     finals_won: int,
     comeback_podium: bool,
+    chemistry: dict,
+    trophies: dict,
+    elo_rating: int,
 ) -> list[dict]:
     tournaments_played = global_row.get("tournaments_played", len(history))
-    champion_count = sum(1 for item in history if item["placement"] == 1)
-    podium_count = sum(1 for item in history if item["placement"] is not None and item["placement"] <= 3)
+    champion_count = trophies["champion"]
+    podium_count = trophies["podiums"]
+    completed_formats = {
+        item["format"]
+        for item in history
+        if item.get("completed_at") is not None
+    }
+    best_partner = chemistry.get("best_partner")
+    favorite_opponent = chemistry.get("favorite_opponent")
     undefeated_night = any(
         item["placement"] == 1 and item["losses"] == 0
         for item in history
@@ -365,6 +375,27 @@ def _build_achievements(
         ("undefeated-night", "Undefeated night", "Won a tournament without losing a match.", "\u2728", undefeated_night),
         ("comeback-king", "Comeback king", "Climbed from outside the top three to a podium finish.", "\U0001F451", comeback_podium),
         ("clutch-closer", "Clutch closer", "Won a bracket final.", "\U0001F9E0", finals_won >= 1),
+        ("triple-crown", "Triple crown", "Won three tournament nights.", "\U0001F31F", champion_count >= 3),
+        ("silver-collector", "Silver collector", "Finished runner-up three times.", "\U0001F948", trophies["runner_up"] >= 3),
+        ("bronze-battler", "Bronze battler", "Claimed third place three times.", "\U0001F949", trophies["third_place"] >= 3),
+        ("top-seed", "Top seed", "Reached an Elo rating of 1100.", "\U0001F4C8", elo_rating >= 1100),
+        (
+            "dream-team",
+            "Dream team",
+            "Built a 70% win rate with a partner across at least four matches.",
+            "\U0001F91D",
+            best_partner is not None and best_partner["matches"] >= 4 and best_partner["win_rate"] >= 70,
+        ),
+        (
+            "rival-slayer",
+            "Rival slayer",
+            "Beat an opponent 70% of the time across at least four meetings.",
+            "\U0001F5E1",
+            favorite_opponent is not None and favorite_opponent["matches"] >= 4 and favorite_opponent["win_rate"] >= 70,
+        ),
+        ("format-hopper", "Format hopper", "Finished nights in both Americano and Mexicano.", "\U0001F501", len(completed_formats) >= 2),
+        ("iron-wall", "Iron wall", "Built a +50 all-time point difference.", "\U0001F6E1", global_row["game_diff"] >= 50),
+        ("club-staple", "Club staple", "Played twenty completed tournaments.", "\U0001F3DF", tournaments_played >= 20),
     ]
 
     return [
@@ -373,9 +404,9 @@ def _build_achievements(
             "title": title,
             "description": description,
             "icon": icon,
+            "unlocked": unlocked,
         }
         for slug, title, description, icon, unlocked in definitions
-        if unlocked
     ]
 
 
@@ -454,6 +485,12 @@ def build_player_stats(db: Session, player_id: str) -> dict:
             streaks=insights["streaks"],
             finals_won=insights["finals_won"],
             comeback_podium=comeback_podium,
+            chemistry={
+                "best_partner": insights["best_partner"],
+                "favorite_opponent": insights["favorite_opponent"],
+            },
+            trophies=trophies,
+            elo_rating=elo_row["rating"] if elo_row else int(DEFAULT_ELO_RATING),
         ),
         "history": history[:12],
     }
