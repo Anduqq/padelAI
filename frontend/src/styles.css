@@ -1,10 +1,7 @@
 :root {
   font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
   color: #f8f1e7;
-  background:
-    radial-gradient(circle at top left, rgba(255, 166, 77, 0.28), transparent 32%),
-    radial-gradient(circle at bottom right, rgba(63, 169, 155, 0.18), transparent 24%),
-    linear-gradient(135deg, #112028 0%, #1b2f37 46%, #27444a 100%);
+  background: #0d161b;
 }
 
 * {
@@ -14,7 +11,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: transparent;
+  background: #0d161b;
 }
 
 h1,
@@ -75,11 +72,9 @@ td {
 .hero-panel,
 .panel {
   width: 100%;
-  border: 1px solid rgba(248, 241, 231, 0.12);
-  background: rgba(15, 26, 32, 0.78);
-  backdrop-filter: blur(16px);
+  border: 1px solid rgba(248, 241, 231, 0.08);
+  background: #16232b;
   border-radius: 24px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
 }
 
 .hero-panel {
@@ -96,18 +91,16 @@ td {
 }
 
 .inset-panel {
-  background: rgba(255, 255, 255, 0.04);
+  background: #10191f;
 }
 
 .topbar {
   display: grid;
   gap: 1rem;
   padding: 1rem 1.1rem;
-  border: 1px solid rgba(248, 241, 231, 0.12);
-  background: rgba(15, 26, 32, 0.88);
-  backdrop-filter: blur(16px);
+  border: 1px solid rgba(248, 241, 231, 0.08);
+  background: #16232b;
   border-radius: 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
 }
 
 .topbar-title {
@@ -124,6 +117,10 @@ td {
 }
 
 .user-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
   padding: 0.4rem 0.45rem 0.4rem 0.9rem;
   border-radius: 999px;
   background: rgba(248, 241, 231, 0.08);
@@ -324,7 +321,6 @@ td {
   border-radius: 999px;
 }
 
-.user-chip,
 .split-row,
 .form-row,
 .selection-summary,
@@ -354,6 +350,20 @@ td {
 
 .selection-note {
   color: rgba(248, 241, 231, 0.72);
+}
+
+.selection-summary-block {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 5.5rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(248, 241, 231, 0.08);
+  border-radius: 18px;
+  background: rgba(248, 241, 231, 0.04);
+}
+
+.selection-placeholder {
+  margin: 0;
 }
 
 .score-helper {
@@ -459,8 +469,25 @@ td {
   border: 1px solid rgba(65, 191, 170, 0.32);
 }
 
+.selected-player-list {
+  min-height: 2.75rem;
+  align-content: flex-start;
+}
+
 .table-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.leaderboard-table {
+  min-width: 32rem;
+}
+
+.leaderboard-player-cell {
+  min-width: 8.5rem;
+  white-space: nowrap;
 }
 
 .eyebrow {
@@ -514,6 +541,11 @@ td {
 .pie-ring-center span {
   color: rgba(248, 241, 231, 0.72);
   font-size: 0.82rem;
+}
+
+.pie-ring-center strong {
+  font-size: 2rem;
+  line-height: 1;
 }
 
 .pie-legend {
@@ -643,6 +675,11 @@ td {
   margin-top: 0.75rem;
 }
 
+.action-panel {
+  display: grid;
+  gap: 1rem;
+}
+
 @media (max-width: 980px) {
   .auth-shell,
   .dashboard-grid,
@@ -656,7 +693,6 @@ td {
   .topbar,
   .topbar-actions,
   .split-row,
-  .user-chip,
   .bench-strip,
   .inline-form {
     flex-direction: column;
@@ -672,6 +708,12 @@ td {
   .panel,
   .hero-panel {
     padding: 1.15rem;
+  }
+
+  th,
+  td {
+    padding: 0.65rem 0.55rem;
+    font-size: 0.92rem;
   }
 
   .tournament-card-header,
@@ -693,6 +735,26 @@ td {
   .secondary-button,
   .ghost-button {
     width: 100%;
+  }
+
+  .nav-pill {
+    width: 100%;
+  }
+
+  .user-chip {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    padding: 0.8rem;
+    border-radius: 18px;
+  }
+
+  .leaderboard-table {
+    min-width: 26rem;
+  }
+
+  .leaderboard-optional-cell {
+    display: none;
   }
 
   .screen-shell {

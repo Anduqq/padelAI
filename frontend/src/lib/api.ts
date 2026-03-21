@@ -95,6 +95,14 @@ export const api = {
     request<TournamentDetail>(`/api/tournaments/${tournamentId}/generate-next-round`, {
       method: "POST"
     }),
+  finishTournament: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/finish`, {
+      method: "POST"
+    }),
+  playTopFourFinal: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/play-top-four-final`, {
+      method: "POST"
+    }),
   unlockRound: (tournamentId: string, roundId: string) =>
     request<TournamentDetail>(`/api/tournaments/${tournamentId}/rounds/${roundId}/unlock`, {
       method: "POST"

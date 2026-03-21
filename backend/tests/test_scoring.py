@@ -162,6 +162,7 @@ def test_api_accepts_valid_americano_points_score(client: TestClient, db_session
     )
 
     assert response.status_code == 200
+    assert response.json()["status"] == "active"
     db_session.refresh(match)
     assert match.team_a_games == 17
     assert match.team_b_games == 12

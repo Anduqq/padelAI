@@ -274,16 +274,75 @@ def _persist_round_completion(db: Session, tournament: Tournament, round_row: Ro
     if tournament.format == TournamentFormat.AMERICANO:
         next_round = next((item for item in tournament.rounds if item.status == RoundStatus.PENDING), None)
         if next_round is None:
-            tournament.status = TournamentStatus.COMPLETED
-            tournament.completed_at = _utc_now()
             return
         next_round.status = RoundStatus.ACTIVE
         next_round.started_at = _utc_now()
         return
 
     if round_row.number >= (tournament.target_rounds or round_row.number):
-        tournament.status = TournamentStatus.COMPLETED
-        tournament.completed_at = _utc_now()
+        return
+
+
+def _finish_tournament_state(db: Session, tournament: Tournament) -> None:
+    tournament.status = TournamentStatus.COMPLETED
+    tournament.completed_at = _utc_now()
+
+    for round_row in list(tournament.rounds):
+        if round_row.status == RoundStatus.PENDING:
+            db.delete(round_row)
+            continue
+
+        if round_row.status == RoundStatus.ACTIVE:
+            round_row.status = RoundStatus.COMPLETED
+            round_row.completed_at = _utc_now()
+            round_row.started_at = round_row.started_at or _utc_now()
+
+
+def _create_top_four_final_round(db: Session, tournament: Tournament) -> Round:
+    if tournament.status != TournamentStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Only active tournaments can schedule finals.")
+
+    if any(round_row.status == RoundStatus.ACTIVE for round_row in tournament.rounds):
+        raise HTTPException(status_code=400, detail="Finish the current round before creating a final.")
+
+    if any((round_row.metadata_json or {}).get("type") == "top4_final" for round_row in tournament.rounds):
+        raise HTTPException(status_code=400, detail="A top 4 final has already been created for this tournament.")
+
+    leaderboard = compute_tournament_standings(db, tournament.id)
+    ranked_player_ids = [row["player_id"] for row in leaderboard[:4]]
+    if len(ranked_player_ids) < 4:
+        raise HTTPException(status_code=400, detail="At least 4 ranked players are needed to create a top 4 final.")
+
+    round_row = Round(
+        tournament=tournament,
+        number=len(tournament.rounds) + 1,
+        status=RoundStatus.ACTIVE,
+        metadata_json={
+            "strategy": "finals",
+            "type": "top4_final",
+            "ranking_order": ranked_player_ids,
+        },
+        started_at=_utc_now(),
+    )
+    db.add(round_row)
+    db.flush()
+
+    db.add(
+        Match(
+            tournament=tournament,
+            round=round_row,
+            court_number=1,
+            team_a_player_1_id=ranked_player_ids[0],
+            team_a_player_2_id=ranked_player_ids[2],
+            team_b_player_1_id=ranked_player_ids[1],
+            team_b_player_2_id=ranked_player_ids[3],
+        )
+    )
+
+    if tournament.target_rounds is None or tournament.target_rounds < round_row.number:
+        tournament.target_rounds = round_row.number
+
+    return round_row
 
 
 def _delete_tournament_dependencies(db: Session, tournament_id: str) -> None:
@@ -487,6 +546,56 @@ async def generate_next_round(
     await manager.broadcast(
         tournament.id,
         {"type": "next_round_generated", "tournament_id": tournament.id, "round_number": len(tournament.rounds)},
+    )
+    return _serialize_tournament_detail(db, tournament)
+
+
+@router.post("/{tournament_id}/finish")
+async def finish_tournament(
+    tournament_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+    if tournament.status != TournamentStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Only active tournaments can be finished.")
+
+    _finish_tournament_state(db, tournament)
+    db.commit()
+
+    tournament = _load_tournament(db, tournament.id)
+    if tournament is None:
+        raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
+
+    await manager.broadcast(
+        tournament.id,
+        {"type": "tournament_finished", "tournament_id": tournament.id},
+    )
+    return _serialize_tournament_detail(db, tournament)
+
+
+@router.post("/{tournament_id}/play-top-four-final")
+async def play_top_four_final(
+    tournament_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+
+    round_row = _create_top_four_final_round(db, tournament)
+    db.commit()
+
+    tournament = _load_tournament(db, tournament.id)
+    if tournament is None:
+        raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
+
+    await manager.broadcast(
+        tournament.id,
+        {"type": "top4_final_created", "tournament_id": tournament.id, "round_id": round_row.id},
     )
     return _serialize_tournament_detail(db, tournament)
 

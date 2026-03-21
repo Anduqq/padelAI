@@ -232,6 +232,66 @@ def _seed_eight_player_draft_tournament(db_session: Session) -> tuple[User, Tour
     return admin_user, tournament
 
 
+def _seed_post_round_tournament(db_session: Session) -> tuple[User, Tournament]:
+    admin_user, iar_player = _create_player(db_session, "IAR", is_admin=True)
+    _, ada = _create_player(db_session, "Ada")
+    _, ben = _create_player(db_session, "Ben")
+    _, cris = _create_player(db_session, "Cris")
+
+    tournament = Tournament(
+        name="Post Round Session",
+        format=TournamentFormat.AMERICANO,
+        status=TournamentStatus.ACTIVE,
+        court_count=1,
+        target_rounds=1,
+        scoring_system="classic",
+        americano_points_target=None,
+        created_by_user_id=admin_user.id,
+        created_at=_now(),
+        started_at=_now(),
+    )
+    db_session.add(tournament)
+    db_session.flush()
+
+    for order_index, player in enumerate((iar_player, ada, ben, cris)):
+        db_session.add(
+            TournamentParticipant(
+                tournament_id=tournament.id,
+                player_id=player.id,
+                order_index=order_index,
+            )
+        )
+
+    completed_round = Round(
+        tournament_id=tournament.id,
+        number=1,
+        status=RoundStatus.COMPLETED,
+        metadata_json={"strategy": "americano", "type": "pre_generated", "bench_player_ids": []},
+        started_at=_now(),
+        completed_at=_now(),
+    )
+    db_session.add(completed_round)
+    db_session.flush()
+
+    db_session.add(
+        Match(
+            tournament_id=tournament.id,
+            round_id=completed_round.id,
+            court_number=1,
+            team_a_player_1_id=iar_player.id,
+            team_a_player_2_id=ada.id,
+            team_b_player_1_id=ben.id,
+            team_b_player_2_id=cris.id,
+            team_a_games=6,
+            team_b_games=4,
+            version=2,
+        )
+    )
+
+    db_session.commit()
+    return admin_user, tournament
+
+
 def test_auth_options_put_iar_first_and_allow_selection(client: TestClient, db_session: Session) -> None:
     _create_player(db_session, "Alex")
     _, iar_player = _create_player(db_session, "IAR", is_admin=True)
@@ -349,3 +409,30 @@ def test_start_tournament_randomizes_the_initial_pairing_order(
     first_match = payload["rounds"][0]["matches"][0]
     first_team_names = [player["display_name"] for player in first_match["team_a"]]
     assert first_team_names == ["Player 8", "IAR"]
+
+
+def test_finish_tournament_marks_an_active_session_completed(client: TestClient, db_session: Session) -> None:
+    admin_user, tournament, _ = _seed_unlockable_tournament(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    response = client.post(f"/api/tournaments/{tournament.id}/finish")
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+
+    db_session.refresh(tournament)
+    assert tournament.status == TournamentStatus.COMPLETED
+    assert tournament.completed_at is not None
+
+
+def test_play_top_four_final_creates_a_ranked_final_match(client: TestClient, db_session: Session) -> None:
+    admin_user, tournament = _seed_post_round_tournament(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    response = client.post(f"/api/tournaments/{tournament.id}/play-top-four-final")
+    assert response.status_code == 200
+
+    payload = response.json()
+    final_round = payload["rounds"][-1]
+    assert final_round["metadata"]["type"] == "top4_final"
+    assert [player["display_name"] for player in final_round["matches"][0]["team_a"]] == ["Ada", "Ben"]
+    assert [player["display_name"] for player in final_round["matches"][0]["team_b"]] == ["IAR", "Cris"]

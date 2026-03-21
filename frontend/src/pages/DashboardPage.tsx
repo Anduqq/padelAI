@@ -156,7 +156,7 @@ export function DashboardPage() {
     mutationFn: (tournamentId: string) => api.startTournament(tournamentId),
     onSuccess: async (tournament) => {
       await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
-      startTransition(() => navigate(`/tournaments/${tournament.id}`));
+      startTransition(() => navigate(`/tournaments/${tournament.id}#live-rounds`));
     }
   });
 
@@ -355,26 +355,6 @@ export function DashboardPage() {
             />
           </label>
 
-          <div className="selection-summary">
-            <strong>{selectedPlayers.length} selected</strong>
-            <span className="selection-note">{selectionState.message}</span>
-          </div>
-
-          {selectedPlayerRows.length > 0 ? (
-            <div className="selected-player-list">
-              {selectedPlayerRows.map((player) => (
-                <button
-                  type="button"
-                  key={player.id}
-                  className="selected-player"
-                  onClick={() => togglePlayer(player.id)}
-                >
-                  {player.display_name}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
           <div className="chip-list">
             {filteredPlayers.map((player) => (
               <button
@@ -390,7 +370,7 @@ export function DashboardPage() {
 
           {suggestionsQuery.data && suggestionsQuery.data.length > 0 ? (
             <div className="suggestion-strip">
-              <p className="eyebrow">Suggested from recent history</p>
+              <p className="eyebrow">Suggested from recent history ✨</p>
               <div className="chip-list">
                 {suggestionsQuery.data.slice(0, 8).map((suggestion) => (
                   <button
@@ -405,6 +385,30 @@ export function DashboardPage() {
               </div>
             </div>
           ) : null}
+
+          <div className="selection-summary-block">
+            <div className="selection-summary">
+              <strong>{selectedPlayers.length} selected</strong>
+              <span className="selection-note">{selectionState.message}</span>
+            </div>
+
+            {selectedPlayerRows.length > 0 ? (
+              <div className="selected-player-list">
+                {selectedPlayerRows.map((player) => (
+                  <button
+                    type="button"
+                    key={player.id}
+                    className="selected-player"
+                    onClick={() => togglePlayer(player.id)}
+                  >
+                    {player.display_name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="muted-text selection-placeholder">Selected players will stay pinned here.</p>
+            )}
+          </div>
 
           {createTournament.error ? <p className="error-text">{createTournament.error.message}</p> : null}
 
@@ -422,7 +426,7 @@ export function DashboardPage() {
         <section className="panel">
           <div className="split-row">
             <div>
-              <p className="eyebrow">Active board</p>
+              <p className="eyebrow">Active board 🎾</p>
               <h2>Live and draft tournaments</h2>
             </div>
             <span className="muted-text">{tournamentsQuery.data?.length ?? 0} total</span>
@@ -444,7 +448,7 @@ export function DashboardPage() {
         </section>
 
         <section className="panel">
-          <p className="eyebrow">Archive</p>
+          <p className="eyebrow">Archive 🗂️</p>
           <h2>Completed tournaments</h2>
           <div className="card-grid">
             {completedTournaments.map((tournament) => (

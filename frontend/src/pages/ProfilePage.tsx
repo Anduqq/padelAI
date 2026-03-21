@@ -112,15 +112,11 @@ export function ProfilePage() {
   return (
     <div className="stack-section">
       <section className="panel">
-        <p className="eyebrow">My profile</p>
+        <p className="eyebrow">My profile 📈</p>
         <h2>{profile.display_name}</h2>
-        <p className="muted-text profile-intro">
-          Congrats, you have played {profile.stats.matches_played} matches, collected {profile.stats.points} all-time
-          points, and stepped into {tournamentsPlayed} tournaments so far.
-        </p>
         <div className="stat-grid">
           <div className="stat-card">
-            <span className="stat-label">All-time points</span>
+            <span className="stat-label">All-time points ✨</span>
             <strong className="stat-value">{profile.stats.points}</strong>
           </div>
           <div className="stat-card">
@@ -140,21 +136,21 @@ export function ProfilePage() {
 
       <section className="profile-chart-grid">
         <PieStatCard
-          title="Results mix"
+          title="Results mix 🎯"
           subtitle="How your matches break down"
           totalLabel="Matches"
           totalValue={String(profile.stats.matches_played)}
           segments={resultsSegments}
         />
         <PieStatCard
-          title="Event finishes"
+          title="Event finishes 🏅"
           subtitle="How your tournaments have ended"
           totalLabel="Events"
           totalValue={String(tournamentsPlayed)}
           segments={eventSegments}
         />
         <PieStatCard
-          title="Format split"
+          title="Format split 🎾"
           subtitle="Where you play most often"
           totalLabel="Events"
           totalValue={String(tournamentsPlayed)}
@@ -163,7 +159,7 @@ export function ProfilePage() {
       </section>
 
       <section className="panel">
-        <p className="eyebrow">Recent history</p>
+        <p className="eyebrow">Recent history 🕘</p>
         <h3>Last tournaments</h3>
         <div className="table-wrap">
           <table>
