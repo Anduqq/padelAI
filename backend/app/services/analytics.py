@@ -344,10 +344,18 @@ def _build_achievements(
         if item.get("completed_at") is not None
     )
 
+    champion_unlocked = champion_count >= 1 or finals_won >= 1
+
     definitions = [
         ("welcome-board", "First night", "Joined the tournament board.", "\U0001F3BE", tournaments_played >= 1),
         ("first-win", "First win", "Picked up the first recorded win.", "\U0001F525", global_row["wins"] >= 1),
-        ("champion-night", "Champion's night", "Finished first in a tournament.", "\U0001F3C6", champion_count >= 1),
+        (
+            "champion-night",
+            "Champion's night",
+            "Finished first or closed out a tournament-winning final.",
+            "\U0001F3C6",
+            champion_unlocked,
+        ),
         ("podium-regular", "Podium regular", "Reached the podium five times.", "\U0001F947", podium_count >= 5),
         ("ten-tournaments", "Ten tournaments", "Played ten tournaments.", "\U0001F4C5", tournaments_played >= 10),
         ("marathon-player", "Marathon player", "Played twenty-five tournaments.", "\U0001F680", tournaments_played >= 25),
