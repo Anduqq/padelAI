@@ -95,8 +95,20 @@ export const api = {
     request<TournamentDetail>(`/api/tournaments/${tournamentId}/generate-next-round`, {
       method: "POST"
     }),
+  generateNextRotation: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/generate-next-rotation`, {
+      method: "POST"
+    }),
   finishTournament: (tournamentId: string) =>
     request<TournamentDetail>(`/api/tournaments/${tournamentId}/finish`, {
+      method: "POST"
+    }),
+  startBracket: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/start-bracket`, {
+      method: "POST"
+    }),
+  continueBracket: (tournamentId: string) =>
+    request<TournamentDetail>(`/api/tournaments/${tournamentId}/continue-bracket`, {
       method: "POST"
     }),
   playTopFourFinal: (tournamentId: string) =>

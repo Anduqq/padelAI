@@ -86,6 +86,29 @@ export interface RoundMetadata {
   strategy?: string;
   type?: string;
   ranking_order?: string[];
+  rotation_order?: string[];
+  schedule_index?: number;
+  bracket_round_index?: number;
+  bracket_stage?: string;
+  team_slots?: Array<{
+    court_number: number;
+    team_a: {
+      player_ids: string[];
+      label: string;
+      seed_positions?: number[];
+    };
+    team_b: {
+      player_ids: string[];
+      label: string;
+      seed_positions?: number[];
+    };
+  }>;
+  carryover_team?: {
+    player_ids: string[];
+    label: string;
+    seed_positions?: number[];
+  } | null;
+  excluded_player_ids?: string[];
   bench_player_ids?: string[];
   bench_players?: MatchPlayer[];
 }
@@ -107,6 +130,20 @@ export interface TournamentDetail extends TournamentSummary {
   leaderboard: LeaderboardRow[];
   last_snapshot: LeaderboardRow[] | null;
   can_generate_next_round: boolean;
+  can_continue_americano: boolean;
+  can_start_bracket: boolean;
+  can_continue_bracket: boolean;
+  bracket_graph: Array<{
+    round_id: string;
+    title: string;
+    matches: Array<{
+      court_number: number;
+      team_a_label: string;
+      team_b_label: string;
+      team_a_score: number | null;
+      team_b_score: number | null;
+    }>;
+  }> | null;
 }
 
 export interface PlayerStatsResponse {

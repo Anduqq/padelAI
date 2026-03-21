@@ -548,6 +548,42 @@ td {
   line-height: 1;
 }
 
+.bracket-board {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(16rem, 1fr);
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.bracket-column {
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+}
+
+.bracket-match-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bracket-match {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.9rem;
+  border: 1px solid rgba(248, 241, 231, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.bracket-match > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .pie-legend {
   width: 100%;
   display: grid;
@@ -751,6 +787,10 @@ td {
 
   .leaderboard-table {
     min-width: 26rem;
+  }
+
+  .bracket-board {
+    grid-auto-columns: minmax(14rem, 85vw);
   }
 
   .leaderboard-optional-cell {

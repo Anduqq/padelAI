@@ -18,6 +18,40 @@ function resolveNextScrollTarget(tournament: TournamentDetail) {
   return "tournament-actions";
 }
 
+function BracketGraph({ graph }: { graph: TournamentDetail["bracket_graph"] }) {
+  if (!graph || graph.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="panel">
+      <p className="eyebrow">Bracket board 🧩</p>
+      <h3>Knockout view</h3>
+      <div className="bracket-board">
+        {graph.map((stage) => (
+          <article key={stage.round_id} className="bracket-column">
+            <strong>{stage.title}</strong>
+            <div className="bracket-match-stack">
+              {stage.matches.map((match) => (
+                <div key={`${stage.round_id}-${match.court_number}`} className="bracket-match">
+                  <div>
+                    <span>{match.team_a_label}</span>
+                    <strong>{match.team_a_score ?? "-"}</strong>
+                  </div>
+                  <div>
+                    <span>{match.team_b_label}</span>
+                    <strong>{match.team_b_score ?? "-"}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function TournamentPage() {
   const { tournamentId = "" } = useParams();
   const queryClient = useQueryClient();
@@ -99,6 +133,15 @@ export function TournamentPage() {
     }
   });
 
+  const continueAmericanoMutation = useMutation({
+    mutationFn: () => api.generateNextRotation(tournamentId),
+    onSuccess: async (tournament) => {
+      queryClient.setQueryData(["tournament", tournamentId], tournament);
+      await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+      setPendingScrollTarget(resolveNextScrollTarget(tournament));
+    }
+  });
+
   const scoreMutation = useMutation({
     mutationFn: (payload: { matchId: string; team_a_games: number; team_b_games: number; version: number }) =>
       api.updateScore(payload.matchId, payload),
@@ -133,8 +176,19 @@ export function TournamentPage() {
     }
   });
 
-  const topFourFinalMutation = useMutation({
-    mutationFn: () => api.playTopFourFinal(tournamentId),
+  const startBracketMutation = useMutation({
+    mutationFn: () => api.startBracket(tournamentId),
+    onSuccess: async (tournament) => {
+      queryClient.setQueryData(["tournament", tournamentId], tournament);
+      await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
+      await queryClient.invalidateQueries({ queryKey: ["global-leaderboard"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-stats"] });
+      setPendingScrollTarget(resolveNextScrollTarget(tournament));
+    }
+  });
+
+  const continueBracketMutation = useMutation({
+    mutationFn: () => api.continueBracket(tournamentId),
     onSuccess: async (tournament) => {
       queryClient.setQueryData(["tournament", tournamentId], tournament);
       await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
@@ -154,11 +208,6 @@ export function TournamentPage() {
 
   const tournament = tournamentQuery.data;
   const activeRound = tournament.rounds.find((round) => round.status === "active");
-  const canPlayTopFourFinal =
-    tournament.status === "active" &&
-    !activeRound &&
-    tournament.leaderboard.length >= 4 &&
-    !tournament.rounds.some((round) => round.metadata?.type === "top4_final");
   const scoringDescription =
     tournament.scoring_system === "americano_points" && tournament.americano_points_target
       ? `First to ${tournament.americano_points_target}`
@@ -222,7 +271,9 @@ export function TournamentPage() {
                 disabled={
                   finishTournamentMutation.isPending ||
                   nextRoundMutation.isPending ||
-                  topFourFinalMutation.isPending ||
+                  continueAmericanoMutation.isPending ||
+                  startBracketMutation.isPending ||
+                  continueBracketMutation.isPending ||
                   scoreMutation.isPending
                 }
                 onClick={() => finishTournamentMutation.mutate()}
@@ -244,18 +295,34 @@ export function TournamentPage() {
           <p className="eyebrow">What next? 🧭</p>
           <h3>Choose how you want to wrap up the session</h3>
           <p className="muted-text">
-            Finish the tournament now, continue with the next Mexicano round, or run a top 4 final with 1 + 3 vs 2 +
-            4.
+            Finish now, continue the Americano rotations, move into the next Mexicano round, or launch and advance a
+            seeded bracket built as 1 + 3 vs 2 + 4, 5 + 7 vs 6 + 8, and so on.
           </p>
           <div className="action-row">
             <button
               type="button"
               className="primary-button"
-              disabled={finishTournamentMutation.isPending || topFourFinalMutation.isPending || nextRoundMutation.isPending}
+              disabled={
+                finishTournamentMutation.isPending ||
+                continueAmericanoMutation.isPending ||
+                nextRoundMutation.isPending ||
+                startBracketMutation.isPending ||
+                continueBracketMutation.isPending
+              }
               onClick={() => finishTournamentMutation.mutate()}
             >
               {finishTournamentMutation.isPending ? "Finishing..." : "Finish tournament 🏁"}
             </button>
+            {tournament.can_continue_americano ? (
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={continueAmericanoMutation.isPending || finishTournamentMutation.isPending}
+                onClick={() => continueAmericanoMutation.mutate()}
+              >
+                {continueAmericanoMutation.isPending ? "Building..." : "Continue rotations 🔁"}
+              </button>
+            ) : null}
             {tournament.can_generate_next_round ? (
               <button
                 type="button"
@@ -266,19 +333,31 @@ export function TournamentPage() {
                 {nextRoundMutation.isPending ? "Generating..." : "Continue with next round ➡️"}
               </button>
             ) : null}
-            {canPlayTopFourFinal ? (
+            {tournament.can_start_bracket ? (
               <button
                 type="button"
                 className="ghost-button"
-                disabled={topFourFinalMutation.isPending || finishTournamentMutation.isPending}
-                onClick={() => topFourFinalMutation.mutate()}
+                disabled={startBracketMutation.isPending || finishTournamentMutation.isPending}
+                onClick={() => startBracketMutation.mutate()}
               >
-                {topFourFinalMutation.isPending ? "Building final..." : "Play top 4 final 🏆"}
+                {startBracketMutation.isPending ? "Building bracket..." : "Start brackets 🧩"}
+              </button>
+            ) : null}
+            {tournament.can_continue_bracket ? (
+              <button
+                type="button"
+                className="ghost-button"
+                disabled={continueBracketMutation.isPending || finishTournamentMutation.isPending}
+                onClick={() => continueBracketMutation.mutate()}
+              >
+                {continueBracketMutation.isPending ? "Advancing..." : "Continue bracket 🏆"}
               </button>
             ) : null}
           </div>
         </section>
       ) : null}
+
+      <BracketGraph graph={tournament.bracket_graph} />
 
       <section className="page-columns">
         <section id="tournament-leaderboard" className="panel">
@@ -320,7 +399,7 @@ export function TournamentPage() {
               <article key={round.id} className="round-card">
                 <div className="split-row">
                   <div>
-                    <strong>Round {round.number}</strong>
+                    <strong>{round.metadata?.bracket_stage ?? `Round ${round.number}`}</strong>
                     <p className="muted-text">{formatStatus(round.status)}</p>
                   </div>
                   <span className={`status-badge status-${round.status}`}>{formatStatus(round.status)}</span>
@@ -363,7 +442,9 @@ export function TournamentPage() {
                             scoreMutation.isPending ||
                             unlockRoundMutation.isPending ||
                             finishTournamentMutation.isPending ||
-                            topFourFinalMutation.isPending
+                            continueAmericanoMutation.isPending ||
+                            startBracketMutation.isPending ||
+                            continueBracketMutation.isPending
                           }
                           scoringSystem={tournament.scoring_system}
                           americanoPointsTarget={tournament.americano_points_target}
@@ -397,7 +478,9 @@ export function TournamentPage() {
           {scoreMutation.error ? <p className="error-text">{scoreMutation.error.message}</p> : null}
           {unlockRoundMutation.error ? <p className="error-text">{unlockRoundMutation.error.message}</p> : null}
           {finishTournamentMutation.error ? <p className="error-text">{finishTournamentMutation.error.message}</p> : null}
-          {topFourFinalMutation.error ? <p className="error-text">{topFourFinalMutation.error.message}</p> : null}
+          {continueAmericanoMutation.error ? <p className="error-text">{continueAmericanoMutation.error.message}</p> : null}
+          {startBracketMutation.error ? <p className="error-text">{startBracketMutation.error.message}</p> : null}
+          {continueBracketMutation.error ? <p className="error-text">{continueBracketMutation.error.message}</p> : null}
         </section>
       </section>
     </div>

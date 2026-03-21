@@ -115,6 +115,8 @@ def generate_americano_schedule(player_ids: list[str], court_count: int) -> list
                 metadata={
                     "strategy": "americano",
                     "type": "pre_generated",
+                    "rotation_order": list(player_ids),
+                    "schedule_index": round_number - 1,
                     "bench_player_ids": bench_players,
                 },
             )

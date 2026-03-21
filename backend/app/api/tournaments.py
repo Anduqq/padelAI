@@ -26,6 +26,7 @@ from app.models import (
 from app.schemas.requests import ScoreUpdateRequest, TournamentCreateRequest
 from app.services.leaderboards import compute_tournament_standings
 from app.services.round_generation import (
+    RoundSpec,
     generate_americano_schedule,
     generate_mexicano_round,
     get_schedule_capacity,
@@ -147,16 +148,241 @@ def _round_has_scores(round_row: Round) -> bool:
 
 
 def _can_unlock_round(tournament: Tournament, round_row: Round) -> bool:
-    if round_row.status != RoundStatus.COMPLETED:
+    return round_row.status == RoundStatus.COMPLETED
+
+
+def _clear_match_state(match: Match) -> None:
+    match.team_a_games = None
+    match.team_b_games = None
+    match.version += 1
+    match.last_updated_by_user_id = None
+    match.updated_at = None
+
+
+def _rotation_rounds(tournament: Tournament) -> list[Round]:
+    return [
+        round_row
+        for round_row in tournament.rounds
+        if (round_row.metadata_json or {}).get("strategy") == "americano"
+        and (round_row.metadata_json or {}).get("type") in {"pre_generated", "rotation_extension"}
+    ]
+
+
+def _build_rotation_order(tournament: Tournament) -> list[str]:
+    americano_round = next(
+        (
+            round_row
+            for round_row in tournament.rounds
+            if (round_row.metadata_json or {}).get("strategy") == "americano"
+            and (round_row.metadata_json or {}).get("rotation_order")
+        ),
+        None,
+    )
+    if americano_round is not None:
+        return list(americano_round.metadata_json.get("rotation_order", []))
+
+    return [participant.player_id for participant in tournament.participants]
+
+
+def _build_seeded_bracket_teams(leaderboard: list[dict]) -> tuple[list[dict], list[str]]:
+    bracket_player_count = len(leaderboard) - (len(leaderboard) % 4)
+    if bracket_player_count < 4:
+        raise HTTPException(status_code=400, detail="At least 4 ranked players are needed to build brackets.")
+
+    active_rows = leaderboard[:bracket_player_count]
+    excluded_player_ids = [row["player_id"] for row in leaderboard[bracket_player_count:]]
+    teams: list[dict] = []
+
+    for block_start in range(0, bracket_player_count, 4):
+        block = active_rows[block_start : block_start + 4]
+        teams.append(
+            {
+                "player_ids": [block[0]["player_id"], block[2]["player_id"]],
+                "label": f"#{block_start + 1} + #{block_start + 3}",
+                "seed_positions": [block_start + 1, block_start + 3],
+            }
+        )
+        teams.append(
+            {
+                "player_ids": [block[1]["player_id"], block[3]["player_id"]],
+                "label": f"#{block_start + 2} + #{block_start + 4}",
+                "seed_positions": [block_start + 2, block_start + 4],
+            }
+        )
+
+    return teams, excluded_player_ids
+
+
+def _pair_bracket_teams(teams: list[dict]) -> tuple[list[tuple[dict, dict]], dict | None]:
+    if not teams:
+        return [], None
+
+    carryover_team = teams[0] if len(teams) % 2 == 1 else None
+    start_index = 1 if carryover_team is not None else 0
+    matches = [(teams[index], teams[index + 1]) for index in range(start_index, len(teams), 2)]
+    return matches, carryover_team
+
+
+def _label_bracket_stage(team_count: int, *, has_bronze_match: bool = False) -> str:
+    if has_bronze_match:
+        return "Finals"
+    if team_count <= 2:
+        return "Final"
+    if team_count == 4:
+        return "Semifinals"
+    if team_count == 8:
+        return "Quarterfinals"
+    return f"Bracket round ({team_count} teams)"
+
+
+def _materialize_bracket_round(
+    db: Session,
+    tournament: Tournament,
+    *,
+    teams: list[dict],
+    round_index: int,
+    stage_label: str,
+    carryover_team: dict | None = None,
+    excluded_player_ids: list[str] | None = None,
+) -> Round:
+    matches_to_build, carryover = _pair_bracket_teams(teams)
+    if not matches_to_build:
+        raise HTTPException(status_code=400, detail="Not enough teams are available for the next bracket stage.")
+
+    round_row = Round(
+        tournament=tournament,
+        number=len(tournament.rounds) + 1,
+        status=RoundStatus.ACTIVE,
+        metadata_json={
+            "strategy": "bracket",
+            "type": "knockout",
+            "bracket_round_index": round_index,
+            "bracket_stage": stage_label,
+            "team_slots": [
+                {
+                    "court_number": court_number,
+                    "team_a": team_a,
+                    "team_b": team_b,
+                }
+                for court_number, (team_a, team_b) in enumerate(matches_to_build, start=1)
+            ],
+            "carryover_team": carryover_team if carryover_team is not None else carryover,
+            "excluded_player_ids": excluded_player_ids or [],
+        },
+        started_at=_utc_now(),
+    )
+    db.add(round_row)
+    db.flush()
+
+    for court_number, (team_a, team_b) in enumerate(matches_to_build, start=1):
+        db.add(
+            Match(
+                tournament=tournament,
+                round=round_row,
+                court_number=court_number,
+                team_a_player_1_id=team_a["player_ids"][0],
+                team_a_player_2_id=team_a["player_ids"][1],
+                team_b_player_1_id=team_b["player_ids"][0],
+                team_b_player_2_id=team_b["player_ids"][1],
+            )
+        )
+
+    if tournament.target_rounds is None or tournament.target_rounds < round_row.number:
+        tournament.target_rounds = round_row.number
+
+    return round_row
+
+
+def _build_team_from_slot(slot: dict, side: str) -> dict:
+    return dict(slot.get(side, {}))
+
+
+def _team_won(match: Match, side: str) -> bool:
+    if match.team_a_games is None or match.team_b_games is None:
+        raise HTTPException(status_code=400, detail="Bracket results are incomplete.")
+
+    if match.team_a_games == match.team_b_games:
+        raise HTTPException(status_code=400, detail="Bracket matches cannot finish level.")
+
+    return match.team_a_games > match.team_b_games if side == "team_a" else match.team_b_games > match.team_a_games
+
+
+def _build_next_bracket_stage(last_round: Round) -> tuple[list[dict], list[dict], dict | None]:
+    metadata = dict(last_round.metadata_json or {})
+    slots = list(metadata.get("team_slots", []))
+    slot_map = {slot.get("court_number"): slot for slot in slots}
+
+    winners: list[dict] = []
+    losers: list[dict] = []
+    for match in sorted(last_round.matches, key=lambda item: item.court_number):
+        slot = slot_map.get(match.court_number, {})
+        winning_side = "team_a" if _team_won(match, "team_a") else "team_b"
+        losing_side = "team_b" if winning_side == "team_a" else "team_a"
+        winners.append(_build_team_from_slot(slot, winning_side))
+        losers.append(_build_team_from_slot(slot, losing_side))
+
+    return winners, losers, metadata.get("carryover_team")
+
+
+def _bracket_rounds(tournament: Tournament) -> list[Round]:
+    return [round_row for round_row in tournament.rounds if (round_row.metadata_json or {}).get("strategy") == "bracket"]
+
+
+def _can_continue_bracket(tournament: Tournament) -> bool:
+    if tournament.status != TournamentStatus.ACTIVE:
         return False
 
-    later_rounds = [item for item in tournament.rounds if item.number > round_row.number]
-    return not any(_round_has_scores(item) for item in later_rounds)
+    bracket_rounds = _bracket_rounds(tournament)
+    if not bracket_rounds:
+        return False
+
+    if any(round_row.status == RoundStatus.ACTIVE for round_row in bracket_rounds):
+        return False
+
+    last_round = bracket_rounds[-1]
+    return last_round.status == RoundStatus.COMPLETED and (last_round.metadata_json or {}).get("bracket_stage") not in {
+        "Final",
+        "Finals",
+    }
+
+
+def _build_bracket_graph(tournament: Tournament) -> list[dict] | None:
+    bracket_rounds = _bracket_rounds(tournament)
+    if not bracket_rounds:
+        return None
+
+    graph: list[dict] = []
+    for round_row in bracket_rounds:
+        metadata = dict(round_row.metadata_json or {})
+        slot_map = {slot.get("court_number"): slot for slot in metadata.get("team_slots", [])}
+        matches: list[dict] = []
+        for match in sorted(round_row.matches, key=lambda item: item.court_number):
+            slot = slot_map.get(match.court_number, {})
+            matches.append(
+                {
+                    "court_number": match.court_number,
+                    "team_a_label": slot.get("team_a", {}).get("label", "Team A"),
+                    "team_b_label": slot.get("team_b", {}).get("label", "Team B"),
+                    "team_a_score": match.team_a_games,
+                    "team_b_score": match.team_b_games,
+                }
+            )
+
+        graph.append(
+            {
+                "round_id": round_row.id,
+                "title": metadata.get("bracket_stage", f"Bracket round {len(graph) + 1}"),
+                "matches": matches,
+            }
+        )
+
+    return graph
 
 
 def _serialize_tournament_detail(db: Session, tournament: Tournament) -> dict:
     player_map = _build_player_map(tournament)
     active_round = next((round_row for round_row in tournament.rounds if round_row.status == RoundStatus.ACTIVE), None)
+    leaderboard = compute_tournament_standings(db, tournament.id)
     latest_snapshot = (
         db.execute(
             select(StandingsSnapshot)
@@ -178,6 +404,19 @@ def _serialize_tournament_detail(db: Session, tournament: Tournament) -> dict:
     unlockable_round_ids = {
         round_row.id for round_row in tournament.rounds if _can_unlock_round(tournament, round_row)
     }
+    has_bracket_rounds = any((round_row.metadata_json or {}).get("strategy") == "bracket" for round_row in tournament.rounds)
+    can_continue_americano = (
+        tournament.format == TournamentFormat.AMERICANO
+        and tournament.status == TournamentStatus.ACTIVE
+        and active_round is None
+        and not has_bracket_rounds
+    )
+    can_start_bracket = (
+        tournament.status == TournamentStatus.ACTIVE
+        and active_round is None
+        and not has_bracket_rounds
+        and len(leaderboard) >= 4
+    )
 
     return {
         **_serialize_tournament_summary(tournament),
@@ -186,9 +425,13 @@ def _serialize_tournament_detail(db: Session, tournament: Tournament) -> dict:
             _serialize_round(round_row, player_map, round_row.id in unlockable_round_ids)
             for round_row in tournament.rounds
         ],
-        "leaderboard": compute_tournament_standings(db, tournament.id),
+        "leaderboard": leaderboard,
         "last_snapshot": latest_snapshot.standings_json if latest_snapshot else None,
         "can_generate_next_round": waiting_for_next_round,
+        "can_continue_americano": can_continue_americano,
+        "can_start_bracket": can_start_bracket,
+        "can_continue_bracket": _can_continue_bracket(tournament),
+        "bracket_graph": _build_bracket_graph(tournament),
     }
 
 
@@ -238,7 +481,7 @@ def _unlock_round_state(db: Session, tournament: Tournament, round_row: Round) -
     if not _can_unlock_round(tournament, round_row):
         raise HTTPException(
             status_code=400,
-            detail="Only the latest completed results with no scored later rounds can be unlocked.",
+            detail="Only completed rounds can be unlocked.",
         )
 
     later_rounds = [item for item in tournament.rounds if item.number > round_row.number]
@@ -247,8 +490,19 @@ def _unlock_round_state(db: Session, tournament: Tournament, round_row: Round) -
             db.delete(later_round)
     else:
         for later_round in later_rounds:
+            later_metadata = later_round.metadata_json or {}
+            if later_metadata.get("strategy") != "americano" or later_metadata.get("type") not in {
+                "pre_generated",
+                "rotation_extension",
+            }:
+                db.delete(later_round)
+                continue
+
             later_round.status = RoundStatus.PENDING
             later_round.started_at = None
+            later_round.completed_at = None
+            for match in later_round.matches:
+                _clear_match_state(match)
 
     db.execute(
         delete(StandingsSnapshot).where(
@@ -550,6 +804,160 @@ async def generate_next_round(
     return _serialize_tournament_detail(db, tournament)
 
 
+@router.post("/{tournament_id}/generate-next-rotation")
+async def generate_next_rotation(
+    tournament_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+    if tournament.format != TournamentFormat.AMERICANO:
+        raise HTTPException(status_code=400, detail="Extra rotations are only available for Americano.")
+    if tournament.status != TournamentStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Tournament is not active.")
+    if any(round_row.status == RoundStatus.ACTIVE for round_row in tournament.rounds):
+        raise HTTPException(status_code=400, detail="Finish the current round first.")
+    if _bracket_rounds(tournament):
+        raise HTTPException(status_code=400, detail="Extra rotations are not available after brackets have started.")
+
+    rotation_order = _build_rotation_order(tournament)
+    schedule = generate_americano_schedule(rotation_order, tournament.court_count)
+    rotation_round_count = len(_rotation_rounds(tournament))
+    next_template = schedule[rotation_round_count % len(schedule)]
+    round_row = _materialize_round(
+        db,
+        tournament,
+        RoundSpec(
+            number=len(tournament.rounds) + 1,
+            matches=next_template.matches,
+            metadata={
+                **dict(next_template.metadata),
+                "type": "rotation_extension",
+            },
+        ),
+        RoundStatus.ACTIVE,
+    )
+    if tournament.target_rounds is None or tournament.target_rounds < round_row.number:
+        tournament.target_rounds = round_row.number
+
+    db.commit()
+    tournament = _load_tournament(db, tournament.id)
+    if tournament is None:
+        raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
+
+    await manager.broadcast(
+        tournament.id,
+        {"type": "rotation_extended", "tournament_id": tournament.id, "round_id": round_row.id},
+    )
+    return _serialize_tournament_detail(db, tournament)
+
+
+@router.post("/{tournament_id}/start-bracket")
+async def start_bracket(
+    tournament_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+    if tournament.status != TournamentStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Tournament is not active.")
+    if any(round_row.status == RoundStatus.ACTIVE for round_row in tournament.rounds):
+        raise HTTPException(status_code=400, detail="Finish the current round first.")
+    if _bracket_rounds(tournament):
+        raise HTTPException(status_code=400, detail="A bracket has already started for this tournament.")
+
+    leaderboard = compute_tournament_standings(db, tournament.id)
+    teams, excluded_player_ids = _build_seeded_bracket_teams(leaderboard)
+    stage_label = _label_bracket_stage(len(teams))
+    round_row = _materialize_bracket_round(
+        db,
+        tournament,
+        teams=teams,
+        round_index=1,
+        stage_label=stage_label,
+        excluded_player_ids=excluded_player_ids,
+    )
+    db.commit()
+
+    tournament = _load_tournament(db, tournament.id)
+    if tournament is None:
+        raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
+
+    await manager.broadcast(
+        tournament.id,
+        {"type": "bracket_started", "tournament_id": tournament.id, "round_id": round_row.id},
+    )
+    return _serialize_tournament_detail(db, tournament)
+
+
+@router.post("/{tournament_id}/continue-bracket")
+async def continue_bracket(
+    tournament_id: str,
+    _: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    tournament = _load_tournament(db, tournament_id)
+    if tournament is None:
+        raise HTTPException(status_code=404, detail="Tournament not found.")
+    if tournament.status != TournamentStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Tournament is not active.")
+    if any(round_row.status == RoundStatus.ACTIVE for round_row in tournament.rounds):
+        raise HTTPException(status_code=400, detail="Finish the current round first.")
+
+    bracket_rounds = _bracket_rounds(tournament)
+    if not bracket_rounds:
+        raise HTTPException(status_code=400, detail="Start a bracket before continuing it.")
+
+    last_round = bracket_rounds[-1]
+    if last_round.status != RoundStatus.COMPLETED:
+        raise HTTPException(status_code=400, detail="Complete the current bracket round first.")
+    if (last_round.metadata_json or {}).get("bracket_stage") in {"Final", "Finals"}:
+        raise HTTPException(status_code=400, detail="This bracket is already complete.")
+
+    winners, losers, carryover_team = _build_next_bracket_stage(last_round)
+    contenders = ([carryover_team] if carryover_team else []) + winners
+    if len(contenders) <= 1:
+        raise HTTPException(status_code=400, detail="This bracket is already complete.")
+
+    next_round_index = int((last_round.metadata_json or {}).get("bracket_round_index", len(bracket_rounds))) + 1
+    if len(winners) == 2 and len(losers) == 2 and len(last_round.matches) == 2 and carryover_team is None:
+        round_row = _materialize_bracket_round(
+            db,
+            tournament,
+            teams=[
+                winners[0],
+                winners[1],
+                losers[0],
+                losers[1],
+            ],
+            round_index=next_round_index,
+            stage_label=_label_bracket_stage(2, has_bronze_match=True),
+        )
+    else:
+        round_row = _materialize_bracket_round(
+            db,
+            tournament,
+            teams=contenders,
+            round_index=next_round_index,
+            stage_label=_label_bracket_stage(len(contenders)),
+        )
+
+    db.commit()
+    tournament = _load_tournament(db, tournament.id)
+    if tournament is None:
+        raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
+
+    await manager.broadcast(
+        tournament.id,
+        {"type": "bracket_continued", "tournament_id": tournament.id, "round_id": round_row.id},
+    )
+    return _serialize_tournament_detail(db, tournament)
+
+
 @router.post("/{tournament_id}/finish")
 async def finish_tournament(
     tournament_id: str,
@@ -655,6 +1063,8 @@ async def update_score(
         raise HTTPException(status_code=400, detail="Only active round matches can be edited.")
     if payload.version != match.version:
         raise HTTPException(status_code=409, detail="This match has been updated by someone else. Refresh and try again.")
+    if (match.round.metadata_json or {}).get("strategy") == "bracket" and payload.team_a_games == payload.team_b_games:
+        raise HTTPException(status_code=400, detail="Bracket matches cannot finish level.")
     try:
         validate_match_score(
             scoring_system=match.tournament.scoring_system,
