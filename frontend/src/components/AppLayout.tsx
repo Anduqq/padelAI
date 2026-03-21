@@ -47,15 +47,15 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
           <h1>Club board</h1>
         </div>
 
-        <div className="topbar-actions">
-          <nav className="nav-pill nav-desktop">
-            {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.to === "/"}>
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+        <nav className="nav-pill app-nav">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === "/"}>
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
 
+        <div className="topbar-actions">
           <div className="user-chip">
             <div className="player-row">
               <AvatarBadge
@@ -77,14 +77,6 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
       </header>
 
       <main className="page-shell">{children ?? <Outlet />}</main>
-
-      <nav className="bottom-nav">
-        {navItems.map((item) => (
-          <NavLink key={item.to} to={item.to} end={item.to === "/"}>
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
     </div>
   );
 }

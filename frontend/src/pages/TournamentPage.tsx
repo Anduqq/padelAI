@@ -6,7 +6,7 @@ import { AvatarBadge } from "../components/AvatarBadge";
 import { ScoreEditor } from "../components/ScoreEditor";
 import { api } from "../lib/api";
 import { formatDate, formatStatus } from "../lib/format";
-import { downloadTournamentShareImage, openTournamentWhatsAppShare } from "../lib/share";
+import { openTournamentWhatsAppShare } from "../lib/share";
 import type { TournamentDetail } from "../lib/types";
 
 const TROPHY_ICON = "\uD83C\uDFC6";
@@ -67,7 +67,6 @@ function Podium({ tournament }: { tournament: TournamentDetail }) {
         <div className="action-row">
           <span className="podium-ribbon"><span role="img" aria-label="trophy">{TROPHY_ICON}</span> Finished</span>
           <button type="button" className="secondary-button" onClick={() => openTournamentWhatsAppShare(tournament)}>Share on WhatsApp</button>
-          <button type="button" className="ghost-button" onClick={() => downloadTournamentShareImage(tournament)}>Download share image</button>
         </div>
       </div>
       <article className="podium-hero">
@@ -436,7 +435,7 @@ export function TournamentPage() {
             {tournament.can_continue_americano ? <button type="button" className="secondary-button" disabled={continueAmericanoMutation.isPending || finishTournamentMutation.isPending} onClick={() => continueAmericanoMutation.mutate()}>{continueAmericanoMutation.isPending ? "Building..." : "Continue rotations"}</button> : null}
             {tournament.can_generate_next_round ? <button type="button" className="secondary-button" disabled={nextRoundMutation.isPending || finishTournamentMutation.isPending} onClick={() => nextRoundMutation.mutate()}>{nextRoundMutation.isPending ? "Generating..." : "Continue with next round"}</button> : null}
             {tournament.can_start_bracket ? <button type="button" className="danger-button" disabled={startBracketMutation.isPending || finishTournamentMutation.isPending} onClick={() => startBracketMutation.mutate()}>{startBracketMutation.isPending ? "Building bracket..." : "Start brackets"}</button> : null}
-            {tournament.can_continue_bracket ? <button type="button" className="ghost-button" disabled={continueBracketMutation.isPending || finishTournamentMutation.isPending} onClick={() => continueBracketMutation.mutate()}>{continueBracketMutation.isPending ? "Advancing..." : "Continue bracket"}</button> : null}
+            {tournament.can_continue_bracket ? <button type="button" className="danger-button" disabled={continueBracketMutation.isPending || finishTournamentMutation.isPending} onClick={() => continueBracketMutation.mutate()}>{continueBracketMutation.isPending ? "Advancing..." : "Continue bracket"}</button> : null}
           </div>
         </section>
       ) : null}

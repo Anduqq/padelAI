@@ -5,7 +5,7 @@
 }
 
 .app-shell {
-  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  padding-bottom: 0;
 }
 
 .player-row {
@@ -241,43 +241,8 @@
 }
 
 @media (max-width: 980px) {
-  .nav-desktop {
-    display: none;
-  }
-
   body {
-    font-size: 1.04rem;
-  }
-
-  .bottom-nav {
-    position: fixed;
-    left: 0.75rem;
-    right: 0.75rem;
-    bottom: calc(0.75rem + env(safe-area-inset-bottom));
-    z-index: 20;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0.35rem;
-    padding: 0.45rem;
-    border-radius: 22px;
-    border: 1px solid rgba(248, 241, 231, 0.1);
-    background: rgba(15, 26, 32, 0.94);
-    backdrop-filter: blur(12px);
-  }
-
-  .bottom-nav a {
-    display: grid;
-    place-items: center;
-    min-height: 3rem;
-    padding: 0.55rem 0.4rem;
-    border-radius: 16px;
-    font-size: 0.72rem;
-    text-align: center;
-  }
-
-  .bottom-nav a.active {
-    background: rgba(65, 191, 170, 0.18);
-    color: #dffaf4;
+    font-size: 1.15rem;
   }
 
   .profile-hero-main,
@@ -285,22 +250,9 @@
     grid-template-columns: 1fr;
   }
 
-  .mobile-fab {
-    position: fixed;
-    right: 1rem;
-    bottom: calc(6rem + env(safe-area-inset-bottom));
-    z-index: 18;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 3.25rem;
-    padding: 0.9rem 1.1rem;
-    border: none;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #ffb347, #ff7f3f);
-    color: #132228;
-    font-weight: 700;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  .mobile-fab,
+  .bottom-nav {
+    display: none;
   }
 
   .mobile-action-dock {
@@ -1228,13 +1180,13 @@ td {
 
   .panel,
   .hero-panel {
-    padding: 1.15rem;
+    padding: 1.35rem;
   }
 
   th,
   td {
-    padding: 0.65rem 0.55rem;
-    font-size: 1rem;
+    padding: 0.85rem 0.75rem;
+    font-size: 1.08rem;
   }
 
   .tournament-card-header,
@@ -1257,10 +1209,33 @@ td {
   .ghost-button,
   .danger-button {
     width: 100%;
+    min-height: 4.25rem;
+    padding: 1.05rem 1.2rem;
+    border-radius: 22px;
+    font-size: 1.16rem;
   }
 
-  .nav-pill {
+  .app-nav {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .app-nav a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 4.25rem;
+    padding: 1rem 1.1rem;
+    border-radius: 22px;
+    font-size: 1.08rem;
+    text-align: center;
+    background: rgba(248, 241, 231, 0.08);
+    border: 1px solid rgba(248, 241, 231, 0.08);
   }
 
   .user-chip {
@@ -1282,32 +1257,64 @@ td {
   }
 
   h1 {
-    font-size: 2rem;
+    font-size: 2.35rem;
   }
 
   h2 {
-    font-size: 1.7rem;
+    font-size: 2rem;
   }
 
   h3 {
-    font-size: 1.3rem;
+    font-size: 1.55rem;
   }
 
   .eyebrow {
-    font-size: 0.82rem;
+    font-size: 0.92rem;
   }
 
   .muted-text,
   .popup-meta,
   .stat-label,
   .meta-label {
-    font-size: 0.95rem;
+    font-size: 1.04rem;
   }
 
   .stat-value,
   .meta-value,
   .score-field-value {
-    font-size: 1.22rem;
+    font-size: 1.45rem;
+  }
+
+  .stack-form input,
+  .stack-form select,
+  .score-editor input,
+  .inline-form input {
+    min-height: 4rem;
+    padding: 1rem 1.05rem;
+    font-size: 1.08rem;
+    border-radius: 18px;
+  }
+
+  .winner-button {
+    min-height: 5.2rem;
+    padding: 1.2rem;
+    border-radius: 20px;
+    font-size: 1.06rem;
+  }
+
+  .score-chip {
+    min-height: 4.25rem;
+    padding: 1rem 0;
+    font-size: 1.18rem;
+    font-weight: 700;
+  }
+
+  .player-popup,
+  .chip,
+  .selected-player {
+    min-height: 3.7rem;
+    padding: 0.95rem 1rem;
+    border-radius: 20px;
   }
 
   .bracket-tree {
