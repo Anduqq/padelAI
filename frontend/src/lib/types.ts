@@ -3,37 +3,45 @@ export type TournamentStatus = "draft" | "active" | "completed";
 export type RoundStatus = "pending" | "active" | "completed";
 export type ScoringSystem = "classic" | "americano_points";
 
+export interface PlayerIdentity {
+  player_id: string;
+  display_name: string;
+  avatar_url?: string | null;
+}
+
 export interface User {
   id: string;
   full_name: string;
   player_id: string;
   display_name: string;
+  avatar_url?: string | null;
   is_admin: boolean;
 }
 
 export interface LoginOption {
   player_id: string;
   display_name: string;
+  avatar_url?: string | null;
   is_admin: boolean;
 }
 
 export interface PlayerSummary {
   id: string;
   display_name: string;
+  avatar_url?: string | null;
 }
 
 export interface SuggestionRow {
   player_id: string;
   display_name: string;
+  avatar_url?: string | null;
   frequency: number;
   last_played_at: string | null;
   suggestion_score: number;
 }
 
-export interface LeaderboardRow {
+export interface LeaderboardRow extends PlayerIdentity {
   rank: number;
-  player_id: string;
-  display_name: string;
   points: number;
   games_for: number;
   games_against: number;
@@ -43,6 +51,15 @@ export interface LeaderboardRow {
   losses: number;
   draws: number;
   tournaments_played?: number;
+}
+
+export interface EloLeaderboardRow extends PlayerIdentity {
+  rank: number;
+  rating: number;
+  matches_played: number;
+  wins: number;
+  losses: number;
+  draws: number;
 }
 
 export interface TournamentSummary {
@@ -60,16 +77,11 @@ export interface TournamentSummary {
   completed_at: string | null;
 }
 
-export interface TournamentParticipant {
-  player_id: string;
-  display_name: string;
+export interface TournamentParticipant extends PlayerIdentity {
   order_index: number;
 }
 
-export interface MatchPlayer {
-  player_id: string;
-  display_name: string;
-}
+export interface MatchPlayer extends PlayerIdentity {}
 
 export interface MatchItem {
   id: string;
@@ -147,19 +159,86 @@ export interface TournamentDetail extends TournamentSummary {
   }> | null;
 }
 
-export interface PlayerStatsResponse {
-  player_id: string;
-  display_name: string;
+export interface ChemistryRow extends PlayerIdentity {
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  points_for: number;
+  points_against: number;
+  game_diff: number;
+  win_rate: number;
+}
+
+export interface AchievementTag {
+  slug: string;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+export interface PlayerStatsHistoryRow {
+  tournament_id: string;
+  tournament_name: string;
+  format: TournamentFormat;
+  status: TournamentStatus;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  placement: number | null;
+  points: number;
+  wins: number;
+  losses: number;
+  game_diff: number;
+}
+
+export interface PlayerStatsResponse extends PlayerIdentity {
   stats: LeaderboardRow;
-  history: Array<{
+  elo_rating: number;
+  chemistry: {
+    best_partner: ChemistryRow | null;
+    hardest_opponent: ChemistryRow | null;
+    favorite_opponent: ChemistryRow | null;
+  };
+  streaks: {
+    current_win_streak: number;
+    current_unbeaten_streak: number;
+    best_win_streak: number;
+  };
+  trophies: {
+    champion: number;
+    runner_up: number;
+    third_place: number;
+    podiums: number;
+  };
+  achievements: AchievementTag[];
+  history: PlayerStatsHistoryRow[];
+}
+
+export interface HeadToHeadResponse {
+  player_a: PlayerIdentity;
+  player_b: PlayerIdentity;
+  against: {
+    matches: number;
+    player_a_wins: number;
+    player_b_wins: number;
+    draws: number;
+    player_a_points: number;
+    player_b_points: number;
+  };
+  together: {
+    matches: number;
+    wins: number;
+    losses: number;
+    draws: number;
+  };
+  recent_meetings: Array<{
+    match_id: string;
     tournament_id: string;
     tournament_name: string;
-    format: TournamentFormat;
-    status: TournamentStatus;
-    created_at: string;
-    started_at: string | null;
-    completed_at: string | null;
-    placement: number | null;
-    points: number;
+    played_at: string;
+    player_a_points: number;
+    player_b_points: number;
+    result: string;
   }>;
 }

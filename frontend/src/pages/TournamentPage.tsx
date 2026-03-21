@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
+import { AvatarBadge } from "../components/AvatarBadge";
 import { ScoreEditor } from "../components/ScoreEditor";
 import { api } from "../lib/api";
 import { formatDate, formatStatus } from "../lib/format";
+import { downloadTournamentShareImage, openTournamentWhatsAppShare } from "../lib/share";
 import type { LeaderboardRow, TournamentDetail } from "../lib/types";
 
 const TROPHY_ICON = "\uD83C\uDFC6";
@@ -27,6 +29,13 @@ function teamLabelLines(label: string) {
   return label.split(" + ").map((item) => item.trim());
 }
 
+function winningLabel(match: { team_a_label: string; team_b_label: string; team_a_score: number | null; team_b_score: number | null }) {
+  if (match.team_a_score === null || match.team_b_score === null || match.team_a_score === match.team_b_score) {
+    return null;
+  }
+  return match.team_a_score > match.team_b_score ? match.team_a_label : match.team_b_label;
+}
+
 function placementLabel(rank: number, isCompleted: boolean) {
   if (!isCompleted) {
     return String(rank);
@@ -45,34 +54,50 @@ function placementLabel(rank: number, isCompleted: boolean) {
   return String(rank);
 }
 
-function Podium({ leaderboard }: { leaderboard: LeaderboardRow[] }) {
-  const champion = leaderboard[0];
-  const runnerUp = leaderboard[1];
-  const thirdPlace = leaderboard[2];
+function Podium({ tournament }: { tournament: TournamentDetail }) {
+  const champion = tournament.leaderboard[0];
+  const runnerUp = tournament.leaderboard[1];
+  const thirdPlace = tournament.leaderboard[2];
 
   if (!champion) {
     return null;
   }
 
   return (
-    <section className="podium-panel">
+    <section className="podium-panel confetti-panel">
       <div className="split-row">
         <div>
           <p className="eyebrow">Final leaderboard</p>
           <h3>Podium finish</h3>
         </div>
-        <span className="podium-ribbon">
-          <span role="img" aria-label="trophy">
-            {TROPHY_ICON}
-          </span>{" "}
-          Finished
-        </span>
+        <div className="action-row">
+          <span className="podium-ribbon">
+            <span role="img" aria-label="trophy">
+              {TROPHY_ICON}
+            </span>{" "}
+            Finished
+          </span>
+          <button type="button" className="secondary-button" onClick={() => openTournamentWhatsAppShare(tournament)}>
+            Share on WhatsApp
+          </button>
+          <button type="button" className="ghost-button" onClick={() => downloadTournamentShareImage(tournament)}>
+            Download share image
+          </button>
+        </div>
       </div>
 
       <article className="podium-hero">
-        <span className="podium-hero-icon" role="img" aria-label="trophy">
-          {TROPHY_ICON}
-        </span>
+        <div className="podium-hero-icon-wrap">
+          <span className="podium-hero-icon" role="img" aria-label="trophy">
+            {TROPHY_ICON}
+          </span>
+          <AvatarBadge
+            name={champion.display_name}
+            seed={champion.player_id}
+            avatarUrl={champion.avatar_url}
+            size="lg"
+          />
+        </div>
         <div className="podium-hero-copy">
           <span className="podium-hero-label">Champion</span>
           <strong>{champion.display_name}</strong>
@@ -168,14 +193,7 @@ function BracketGraph({ graph }: { graph: TournamentDetail["bracket_graph"] }) {
   const finalStageIndex = mainStages.length - 1;
   const finalMatch = mainStages[finalStageIndex].matches[0];
   const championCenterY = stageLayouts[finalStageIndex][0].centerY;
-  const championLabel =
-    finalMatch.team_a_score !== null &&
-    finalMatch.team_b_score !== null &&
-    finalMatch.team_a_score !== finalMatch.team_b_score
-      ? finalMatch.team_a_score > finalMatch.team_b_score
-        ? finalMatch.team_a_label
-        : finalMatch.team_b_label
-      : "Champion pending";
+  const championLabel = winningLabel(finalMatch) ?? "Champion pending";
   const championX = finalStageIndex * (boxWidth + stageGap) + boxWidth + stageGap;
   const svgWidth = championX + 260;
 
@@ -214,27 +232,46 @@ function BracketGraph({ graph }: { graph: TournamentDetail["bracket_graph"] }) {
                   const targetIndex = nextStageLayouts ? Math.min(Math.floor(matchIndex / 2), nextStageLayouts.length - 1) : -1;
                   const targetCenterY = targetIndex >= 0 ? nextStageLayouts[targetIndex].centerY : null;
                   const elbowX = currentRight + stageGap / 2;
+                  const winner = winningLabel(match);
+                  const highlightTeamA = match.team_a_label === championLabel;
+                  const highlightTeamB = match.team_b_label === championLabel;
+                  const highlightConnector = winner === championLabel && targetCenterY !== null;
 
                   return (
                     <g key={`${stage.round_id}-${match.court_number}`}>
-                      <rect x={stageX} y={topRowY} width={boxWidth} height={teamBoxHeight} rx={14} className="bracket-box" />
+                      <rect
+                        x={stageX}
+                        y={topRowY}
+                        width={boxWidth}
+                        height={teamBoxHeight}
+                        rx={14}
+                        className={highlightTeamA ? "bracket-box bracket-box-highlight" : "bracket-box"}
+                      />
                       <rect
                         x={stageX}
                         y={bottomRowY}
                         width={boxWidth}
                         height={teamBoxHeight}
                         rx={14}
-                        className="bracket-box"
+                        className={highlightTeamB ? "bracket-box bracket-box-highlight" : "bracket-box"}
                       />
 
-                      <text x={stageX + 14} y={topRowY + 20} className="bracket-label">
+                      <text
+                        x={stageX + 14}
+                        y={topRowY + 20}
+                        className={highlightTeamA ? "bracket-label bracket-label-highlight" : "bracket-label"}
+                      >
                         {teamLabelLines(match.team_a_label).map((line, lineIndex) => (
                           <tspan key={`${stage.round_id}-${match.court_number}-a-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>
                             {line}
                           </tspan>
                         ))}
                       </text>
-                      <text x={stageX + 14} y={bottomRowY + 20} className="bracket-label">
+                      <text
+                        x={stageX + 14}
+                        y={bottomRowY + 20}
+                        className={highlightTeamB ? "bracket-label bracket-label-highlight" : "bracket-label"}
+                      >
                         {teamLabelLines(match.team_b_label).map((line, lineIndex) => (
                           <tspan key={`${stage.round_id}-${match.court_number}-b-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>
                             {line}
@@ -252,11 +289,11 @@ function BracketGraph({ graph }: { graph: TournamentDetail["bracket_graph"] }) {
                       {targetCenterY !== null ? (
                         <>
                           <path
-                            className="bracket-connector"
+                            className={highlightConnector ? "bracket-connector bracket-connector-highlight" : "bracket-connector"}
                             d={`M ${currentRight} ${topCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`}
                           />
                           <path
-                            className="bracket-connector"
+                            className={highlightConnector ? "bracket-connector bracket-connector-highlight" : "bracket-connector"}
                             d={`M ${currentRight} ${bottomCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`}
                           />
                         </>
@@ -481,10 +518,60 @@ export function TournamentPage() {
     tournament.scoring_system === "americano_points" && tournament.americano_points_target
       ? `First to ${tournament.americano_points_target}`
       : "Classic";
+  const canAdvance =
+    tournament.can_generate_next_round ||
+    tournament.can_continue_americano ||
+    tournament.can_start_bracket ||
+    tournament.can_continue_bracket;
+  const mobilePrimaryAction = (() => {
+    if (tournament.status === "draft") {
+      return {
+        label: startMutation.isPending ? "Starting..." : "Start",
+        onClick: () => startMutation.mutate()
+      };
+    }
+    if (tournament.status === "completed") {
+      return {
+        label: "Share",
+        onClick: () => openTournamentWhatsAppShare(tournament)
+      };
+    }
+    if (activeRound) {
+      return {
+        label: "Next score",
+        onClick: () => setPendingScrollTarget(resolveNextScrollTarget(tournament))
+      };
+    }
+    if (tournament.can_continue_americano) {
+      return {
+        label: continueAmericanoMutation.isPending ? "Building..." : "Next round",
+        onClick: () => continueAmericanoMutation.mutate()
+      };
+    }
+    if (tournament.can_generate_next_round) {
+      return {
+        label: nextRoundMutation.isPending ? "Generating..." : "Next round",
+        onClick: () => nextRoundMutation.mutate()
+      };
+    }
+    if (tournament.can_continue_bracket) {
+      return {
+        label: continueBracketMutation.isPending ? "Advancing..." : "Advance bracket",
+        onClick: () => continueBracketMutation.mutate()
+      };
+    }
+    if (tournament.can_start_bracket) {
+      return {
+        label: startBracketMutation.isPending ? "Building..." : "Start bracket",
+        onClick: () => startBracketMutation.mutate()
+      };
+    }
+    return null;
+  })();
 
   return (
     <div className="stack-section">
-      <section className="panel">
+      <section className={`panel ${tournament.status === "completed" ? "confetti-panel" : ""}`}>
         <div className="split-row">
           <div>
             <p className="eyebrow">{tournament.format}</p>
@@ -522,7 +609,15 @@ export function TournamentPage() {
             <div className="chip-list">
               {tournament.participants.map((participant) => (
                 <span key={participant.player_id} className="chip chip-static">
-                  {participant.display_name}
+                  <span className="player-row">
+                    <AvatarBadge
+                      name={participant.display_name}
+                      seed={participant.player_id}
+                      avatarUrl={participant.avatar_url}
+                      size="sm"
+                    />
+                    <span>{participant.display_name}</span>
+                  </span>
                 </span>
               ))}
             </div>
@@ -550,6 +645,12 @@ export function TournamentPage() {
                 onClick={() => finishTournamentMutation.mutate()}
               >
                 {finishTournamentMutation.isPending ? "Finishing..." : "Finish tournament"}
+              </button>
+            ) : null}
+
+            {tournament.status === "completed" ? (
+              <button type="button" className="secondary-button" onClick={() => openTournamentWhatsAppShare(tournament)}>
+                Share on WhatsApp
               </button>
             ) : null}
 
@@ -641,7 +742,7 @@ export function TournamentPage() {
           <p className="eyebrow">Tournament leaderboard</p>
           <h3>{tournament.status === "completed" ? "Final standings" : "Current standings"}</h3>
 
-          {tournament.status === "completed" ? <Podium leaderboard={tournament.leaderboard} /> : null}
+          {tournament.status === "completed" ? <Podium tournament={tournament} /> : null}
 
           <div className="table-wrap">
             <table className="leaderboard-table">
@@ -659,7 +760,12 @@ export function TournamentPage() {
                 {tournament.leaderboard.map((row) => (
                   <tr key={row.player_id}>
                     <td className="leaderboard-place-cell">{placementLabel(row.rank, tournament.status === "completed")}</td>
-                    <td className="leaderboard-player-cell">{row.display_name}</td>
+                    <td className="leaderboard-player-cell">
+                      <div className="player-row">
+                        <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="sm" />
+                        <span>{row.display_name}</span>
+                      </div>
+                    </td>
                     <td>{row.points}</td>
                     <td>{row.game_diff}</td>
                     <td>{row.wins}</td>
@@ -692,7 +798,10 @@ export function TournamentPage() {
                     <div className="chip-list">
                       {round.metadata.bench_players.map((player) => (
                         <span key={player.player_id} className="chip chip-static">
-                          {player.display_name}
+                          <span className="player-row">
+                            <AvatarBadge name={player.display_name} seed={player.player_id} avatarUrl={player.avatar_url} size="sm" />
+                            <span>{player.display_name}</span>
+                          </span>
                         </span>
                       ))}
                     </div>
@@ -765,6 +874,31 @@ export function TournamentPage() {
           {continueBracketMutation.error ? <p className="error-text">{continueBracketMutation.error.message}</p> : null}
         </section>
       </section>
+
+      <div className="mobile-action-dock">
+        {mobilePrimaryAction ? (
+          <button type="button" className="primary-button" onClick={mobilePrimaryAction.onClick}>
+            {mobilePrimaryAction.label}
+          </button>
+        ) : null}
+
+        {tournament.status === "active" ? (
+          <button
+            type="button"
+            className="ghost-button"
+            disabled={finishTournamentMutation.isPending || (!activeRound && !canAdvance)}
+            onClick={() => finishTournamentMutation.mutate()}
+          >
+            Finish
+          </button>
+        ) : null}
+
+        {tournament.status === "completed" ? (
+          <button type="button" className="ghost-button" onClick={() => downloadTournamentShareImage(tournament)}>
+            Image
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

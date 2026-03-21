@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { api } from "../lib/api";
+import { AvatarBadge } from "../components/AvatarBadge";
 
 export function AuthPage() {
   const [playerSearch, setPlayerSearch] = useState("");
@@ -60,7 +61,10 @@ export function AuthPage() {
               disabled={loginMutation.isPending}
               onClick={() => loginMutation.mutate(player.player_id)}
             >
-              <strong>{player.display_name}</strong>
+              <div className="player-row">
+                <AvatarBadge name={player.display_name} seed={player.player_id} avatarUrl={player.avatar_url} size="sm" />
+                <strong>{player.display_name}</strong>
+              </div>
               <span className="popup-meta">
                 {player.is_admin ? <span className="admin-tag">Admin</span> : <span>Saved player</span>}
               </span>

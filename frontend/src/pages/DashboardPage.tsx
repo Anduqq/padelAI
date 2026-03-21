@@ -3,6 +3,8 @@ import { startTransition, useDeferredValue, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
+import { AvatarBadge } from "../components/AvatarBadge";
+import { EmptyState } from "../components/EmptyState";
 import { TournamentCard } from "../components/TournamentCard";
 import { api } from "../lib/api";
 import type { ScoringSystem, TournamentFormat } from "../lib/types";
@@ -320,7 +322,7 @@ export function DashboardPage() {
             </div>
           ) : null}
 
-          <div className="panel inset-panel">
+          <div id="add-player-panel" className="panel inset-panel">
             <div className="split-row">
               <div>
                 <p className="eyebrow">Player list</p>
@@ -363,7 +365,10 @@ export function DashboardPage() {
                 className={selectedPlayers.includes(player.id) ? "chip chip-active" : "chip"}
                 onClick={() => togglePlayer(player.id)}
               >
-                {player.display_name}
+                <span className="player-row">
+                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="sm" />
+                  <span>{player.display_name}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -379,7 +384,15 @@ export function DashboardPage() {
                     className={selectedPlayers.includes(suggestion.player_id) ? "chip chip-active" : "chip"}
                     onClick={() => togglePlayer(suggestion.player_id)}
                   >
-                    {suggestion.display_name}
+                    <span className="player-row">
+                      <AvatarBadge
+                        name={suggestion.display_name}
+                        seed={suggestion.player_id}
+                        avatarUrl={suggestion.avatar_url}
+                        size="sm"
+                      />
+                      <span>{suggestion.display_name}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -401,7 +414,10 @@ export function DashboardPage() {
                     className="selected-player"
                     onClick={() => togglePlayer(player.id)}
                   >
-                    {player.display_name}
+                    <span className="player-row">
+                      <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="sm" />
+                      <span>{player.display_name}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -441,7 +457,13 @@ export function DashboardPage() {
                 onDelete={(selectedTournament) => handleDeleteTournament(selectedTournament.id)}
               />
             ))}
-            {activeTournaments.length === 0 ? <p className="muted-text">Draft and live tournaments will show up here.</p> : null}
+            {activeTournaments.length === 0 ? (
+              <EmptyState
+                icon="🎾"
+                title="No tournaments on court"
+                description="Drafts and live sessions will show up here as soon as you spin up the next night."
+              />
+            ) : null}
           </div>
           {startTournament.error ? <p className="error-text">{startTournament.error.message}</p> : null}
           {deleteTournament.error ? <p className="error-text">{deleteTournament.error.message}</p> : null}
@@ -454,10 +476,24 @@ export function DashboardPage() {
             {completedTournaments.map((tournament) => (
               <TournamentCard key={tournament.id} tournament={tournament} />
             ))}
-            {completedTournaments.length === 0 ? <p className="muted-text">Completed events will show up here.</p> : null}
+            {completedTournaments.length === 0 ? (
+              <EmptyState
+                icon="🗂️"
+                title="Archive still empty"
+                description="Once you finish a tournament, the full night will land here for replay and bragging rights."
+              />
+            ) : null}
           </div>
         </section>
       </section>
+
+      <button
+        type="button"
+        className="mobile-fab"
+        onClick={() => document.getElementById("add-player-panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      >
+        Add player
+      </button>
     </div>
   );
 }

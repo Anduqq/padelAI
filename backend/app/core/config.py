@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     secure_cookies: bool = Field(default=True, alias="SECURE_COOKIES")
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
     app_port: int = Field(default=8000, alias="APP_PORT")
+    media_dir_override: str | None = Field(default=None, alias="MEDIA_DIR")
 
     @property
     def sqlalchemy_database_url(self) -> str:
@@ -36,6 +37,16 @@ class Settings(BaseSettings):
     @property
     def frontend_dist_dir(self) -> Path:
         return Path(__file__).resolve().parents[1] / "static"
+
+    @property
+    def media_dir(self) -> Path:
+        if self.media_dir_override:
+            return Path(self.media_dir_override)
+        return Path(__file__).resolve().parents[2] / "media"
+
+    @property
+    def avatars_dir(self) -> Path:
+        return self.media_dir / "avatars"
 
 
 @lru_cache

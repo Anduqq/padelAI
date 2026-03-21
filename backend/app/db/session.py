@@ -25,6 +25,8 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_user_admin_column()
     _ensure_tournament_scoring_columns()
+    _ensure_player_avatar_column()
+    settings.avatars_dir.mkdir(parents=True, exist_ok=True)
 
     session = SessionLocal()
     try:
@@ -74,3 +76,16 @@ def _ensure_tournament_scoring_columns() -> None:
     with engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
+
+
+def _ensure_player_avatar_column() -> None:
+    inspector = inspect(engine)
+    if "players" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("players")}
+    if "avatar_path" in columns:
+        return
+
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE players ADD COLUMN avatar_path VARCHAR(255) NULL"))

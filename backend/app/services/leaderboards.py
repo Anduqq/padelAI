@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import Match, Player, Tournament, TournamentParticipant
+from app.services.player_media import build_avatar_url
 
 
 def _coerce_utc(value: datetime | None) -> datetime | None:
@@ -21,6 +22,7 @@ def _player_base_row(player: Player) -> dict:
     return {
         "player_id": player.id,
         "display_name": player.display_name,
+        "avatar_url": build_avatar_url(player),
         "points": 0,
         "games_for": 0,
         "games_against": 0,
@@ -177,6 +179,7 @@ def build_player_suggestions(db: Session, limit: int = 12) -> list[dict]:
         player.id: {
             "player_id": player.id,
             "display_name": player.display_name,
+            "avatar_url": build_avatar_url(player),
             "frequency": 0,
             "last_played_at": None,
             "suggestion_score": 0.0,

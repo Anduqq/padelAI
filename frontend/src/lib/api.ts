@@ -1,4 +1,6 @@
 import type {
+  EloLeaderboardRow,
+  HeadToHeadResponse,
   LeaderboardRow,
   LoginOption,
   PlayerStatsResponse,
@@ -20,7 +22,7 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -66,8 +68,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
+  uploadMyAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    return request<PlayerSummary>("/api/players/me/avatar", {
+      method: "POST",
+      body: formData
+    });
+  },
   getSuggestions: () => request<SuggestionRow[]>("/api/players/suggestions"),
   getMyStats: () => request<PlayerStatsResponse>("/api/players/me/stats"),
+  getHeadToHead: (playerAId: string, playerBId: string) =>
+    request<HeadToHeadResponse>(
+      `/api/players/head-to-head?player_a_id=${encodeURIComponent(playerAId)}&player_b_id=${encodeURIComponent(playerBId)}`
+    ),
   getTournaments: () => request<TournamentSummary[]>("/api/tournaments"),
   getTournament: (tournamentId: string) => request<TournamentDetail>(`/api/tournaments/${tournamentId}`),
   deleteTournament: (tournamentId: string) =>
@@ -124,5 +138,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  getGlobalLeaderboard: () => request<LeaderboardRow[]>("/api/leaderboards/global")
+  getGlobalLeaderboard: () => request<LeaderboardRow[]>("/api/leaderboards/global"),
+  getEloLeaderboard: () => request<EloLeaderboardRow[]>("/api/leaderboards/elo")
 };

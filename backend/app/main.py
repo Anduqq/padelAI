@@ -84,6 +84,8 @@ def create_app(*, use_lifespan: bool = True) -> FastAPI:
     assets_dir = frontend_dir / "assets"
     if assets_dir.exists():
         app.mount("/assets", FrontendAssetFiles(directory=assets_dir), name="assets")
+    settings.avatars_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/media", StaticFiles(directory=settings.media_dir), name="media")
 
     def _serve_frontend(path_fragment: str | None = None) -> FileResponse:
         if path_fragment:

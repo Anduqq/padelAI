@@ -10,6 +10,7 @@ from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models import Player, User
 from app.schemas.requests import PlayerLoginRequest
+from app.services.player_media import build_avatar_url
 
 router = APIRouter()
 
@@ -34,6 +35,7 @@ def _serialize_user(user: User) -> dict:
         "full_name": user.full_name,
         "player_id": player.id if player else None,
         "display_name": player.display_name if player else None,
+        "avatar_url": build_avatar_url(player),
         "is_admin": user.is_admin,
     }
 
@@ -42,6 +44,7 @@ def _serialize_login_option(player: Player) -> dict:
     return {
         "player_id": player.id,
         "display_name": player.display_name,
+        "avatar_url": build_avatar_url(player),
         "is_admin": bool(player.user and player.user.is_admin),
     }
 

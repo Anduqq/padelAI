@@ -34,8 +34,12 @@ services:
       SECURE_COOKIES: ${SECURE_COOKIES:-true}
       APP_HOST: ${APP_HOST:-0.0.0.0}
       APP_PORT: ${APP_PORT:-8000}
+      MEDIA_DIR: /app/backend/media
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      - app_media:/app/backend/media
 
 volumes:
   postgres_data:
+  app_media:

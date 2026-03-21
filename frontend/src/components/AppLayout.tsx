@@ -5,11 +5,20 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { api } from "../lib/api";
 import type { User } from "../lib/types";
+import { AvatarBadge } from "./AvatarBadge";
 
 interface AppLayoutProps {
   currentUser: User;
   children?: ReactNode;
 }
+
+const navItems = [
+  { to: "/", label: "Tournaments" },
+  { to: "/leaderboard", label: "Leaderboard" },
+  { to: "/elo", label: "Elo" },
+  { to: "/compare", label: "Compare" },
+  { to: "/profile", label: "My Stats" }
+];
 
 export function AppLayout({ currentUser, children }: AppLayoutProps) {
   const queryClient = useQueryClient();
@@ -23,6 +32,7 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
         queryClient.removeQueries({ queryKey: ["tournament"] }),
         queryClient.removeQueries({ queryKey: ["tournaments"] }),
         queryClient.removeQueries({ queryKey: ["global-leaderboard"] }),
+        queryClient.removeQueries({ queryKey: ["elo-leaderboard"] }),
         queryClient.removeQueries({ queryKey: ["my-stats"] })
       ]);
       navigate("/login");
@@ -30,32 +40,51 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
   });
 
   return (
-    <div className="screen-shell">
+    <div className="screen-shell app-shell">
       <header className="topbar">
         <div className="topbar-title">
           <p className="eyebrow">Padel tournament</p>
-          <h1>Live tournament control</h1>
+          <h1>Club board</h1>
         </div>
+
         <div className="topbar-actions">
-          <nav className="nav-pill">
-            <NavLink to="/" end>
-              Tournaments
-            </NavLink>
-            <NavLink to="/leaderboard">Leaderboard</NavLink>
-            <NavLink to="/profile">My Stats</NavLink>
+          <nav className="nav-pill nav-desktop">
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.to === "/"}>
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
+
           <div className="user-chip">
-            <span>
-              {currentUser.display_name}
-              {currentUser.is_admin ? <span className="admin-tag inline-tag">Admin</span> : null}
-            </span>
+            <div className="player-row">
+              <AvatarBadge
+                name={currentUser.display_name}
+                seed={currentUser.player_id}
+                avatarUrl={currentUser.avatar_url}
+                size="sm"
+              />
+              <span>
+                {currentUser.display_name}
+                {currentUser.is_admin ? <span className="admin-tag inline-tag">Admin</span> : null}
+              </span>
+            </div>
             <button type="button" className="ghost-button" onClick={() => logoutMutation.mutate()}>
               Logout
             </button>
           </div>
         </div>
       </header>
+
       <main className="page-shell">{children ?? <Outlet />}</main>
+
+      <nav className="bottom-nav">
+        {navItems.map((item) => (
+          <NavLink key={item.to} to={item.to} end={item.to === "/"}>
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
     </div>
   );
 }

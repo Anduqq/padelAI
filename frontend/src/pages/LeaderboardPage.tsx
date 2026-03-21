@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { AvatarBadge } from "../components/AvatarBadge";
+import { EmptyState } from "../components/EmptyState";
 import { api } from "../lib/api";
 
 export function LeaderboardPage() {
@@ -8,40 +10,74 @@ export function LeaderboardPage() {
     queryFn: api.getGlobalLeaderboard
   });
 
+  const leader = leaderboardQuery.data?.[0];
+
   return (
-    <section className="panel">
-      <p className="eyebrow">All-time table 🏆</p>
-      <h2>Global leaderboard</h2>
-      <div className="table-wrap">
-        <table className="leaderboard-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th className="leaderboard-player-cell">Player</th>
-              <th className="leaderboard-optional-cell">Tournaments</th>
-              <th>Points</th>
-              <th>W</th>
-              <th>L</th>
-              <th>Diff</th>
-              <th className="leaderboard-optional-cell">Matches</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboardQuery.data?.map((row) => (
-              <tr key={row.player_id}>
-                <td>{row.rank}</td>
-                <td className="leaderboard-player-cell">{row.display_name}</td>
-                <td className="leaderboard-optional-cell">{row.tournaments_played ?? 0}</td>
-                <td>{row.points}</td>
-                <td>{row.wins}</td>
-                <td>{row.losses}</td>
-                <td>{row.game_diff}</td>
-                <td className="leaderboard-optional-cell">{row.matches_played}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <section className="panel stack-section">
+      <div className="split-row">
+        <div>
+          <p className="eyebrow">All-time table</p>
+          <h2>Global leaderboard</h2>
+        </div>
+        {leader ? (
+          <div className="leader-highlight">
+            <AvatarBadge
+              name={leader.display_name}
+              seed={leader.player_id}
+              avatarUrl={leader.avatar_url}
+              size="md"
+            />
+            <div>
+              <span className="meta-label">Top spot</span>
+              <strong>{leader.display_name}</strong>
+            </div>
+          </div>
+        ) : null}
       </div>
+
+      {leaderboardQuery.data && leaderboardQuery.data.length > 0 ? (
+        <div className="table-wrap">
+          <table className="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Place</th>
+                <th className="leaderboard-player-cell">Player</th>
+                <th className="leaderboard-optional-cell">Tournaments</th>
+                <th>Points</th>
+                <th>W</th>
+                <th>L</th>
+                <th>Diff</th>
+                <th className="leaderboard-optional-cell">Matches</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboardQuery.data.map((row) => (
+                <tr key={row.player_id}>
+                  <td>{row.rank}</td>
+                  <td className="leaderboard-player-cell">
+                    <div className="player-row">
+                      <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="sm" />
+                      <span>{row.display_name}</span>
+                    </div>
+                  </td>
+                  <td className="leaderboard-optional-cell">{row.tournaments_played ?? 0}</td>
+                  <td>{row.points}</td>
+                  <td>{row.wins}</td>
+                  <td>{row.losses}</td>
+                  <td>{row.game_diff}</td>
+                  <td className="leaderboard-optional-cell">{row.matches_played}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState
+          icon="🏁"
+          title="No standings yet"
+          description="As soon as the first scores land, this table will start showing who is running the club."
+        />
+      )}
     </section>
   );
 }

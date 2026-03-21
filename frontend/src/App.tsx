@@ -5,6 +5,8 @@ import { AppLayout } from "./components/AppLayout";
 import { api, ApiError } from "./lib/api";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { EloPage } from "./pages/EloPage";
+import { HeadToHeadPage } from "./pages/HeadToHeadPage";
 import { LeaderboardPage } from "./pages/LeaderboardPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { TournamentPage } from "./pages/TournamentPage";
@@ -82,6 +84,8 @@ export default function App() {
           <Route path="/" element={<RequireAuth />}>
             <Route index element={<DashboardPage />} />
             <Route path="leaderboard" element={<LeaderboardPage />} />
+            <Route path="elo" element={<EloPage />} />
+            <Route path="compare" element={<HeadToHeadPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="tournaments/:tournamentId" element={<TournamentPage />} />
           </Route>

@@ -25,6 +25,7 @@ from app.models import (
 )
 from app.schemas.requests import ScoreUpdateRequest, TournamentCreateRequest
 from app.services.leaderboards import compute_tournament_standings
+from app.services.player_media import build_avatar_url
 from app.services.round_generation import (
     RoundSpec,
     generate_americano_schedule,
@@ -51,6 +52,7 @@ def _serialize_participant(participant: TournamentParticipant) -> dict:
     return {
         "player_id": participant.player.id,
         "display_name": participant.player.display_name,
+        "avatar_url": build_avatar_url(participant.player),
         "order_index": participant.order_index,
     }
 
@@ -84,20 +86,24 @@ def _serialize_match(match: Match, player_map: dict[str, Player]) -> dict:
             {
                 "player_id": match.team_a_player_1_id,
                 "display_name": player_map[match.team_a_player_1_id].display_name,
+                "avatar_url": build_avatar_url(player_map[match.team_a_player_1_id]),
             },
             {
                 "player_id": match.team_a_player_2_id,
                 "display_name": player_map[match.team_a_player_2_id].display_name,
+                "avatar_url": build_avatar_url(player_map[match.team_a_player_2_id]),
             },
         ],
         "team_b": [
             {
                 "player_id": match.team_b_player_1_id,
                 "display_name": player_map[match.team_b_player_1_id].display_name,
+                "avatar_url": build_avatar_url(player_map[match.team_b_player_1_id]),
             },
             {
                 "player_id": match.team_b_player_2_id,
                 "display_name": player_map[match.team_b_player_2_id].display_name,
+                "avatar_url": build_avatar_url(player_map[match.team_b_player_2_id]),
             },
         ],
     }
@@ -108,7 +114,11 @@ def _serialize_round(round_row: Round, player_map: dict[str, Player], can_unlock
     bench_player_ids = [player_id for player_id in metadata.get("bench_player_ids", []) if player_id in player_map]
     if metadata:
         metadata["bench_players"] = [
-            {"player_id": player_id, "display_name": player_map[player_id].display_name}
+            {
+                "player_id": player_id,
+                "display_name": player_map[player_id].display_name,
+                "avatar_url": build_avatar_url(player_map[player_id]),
+            }
             for player_id in bench_player_ids
         ]
 
