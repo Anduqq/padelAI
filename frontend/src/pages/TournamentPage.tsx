@@ -445,7 +445,7 @@ export function TournamentPage() {
                       name={participant.display_name}
                       seed={participant.player_id}
                       avatarUrl={participant.avatar_url}
-                      size="md"
+                      size="lg"
                     />
                     <span>{participant.display_name}</span>
                   </span>
@@ -520,7 +520,7 @@ export function TournamentPage() {
                     <td className="leaderboard-place-cell">{placementLabel(row.rank, tournament.status === "completed")}</td>
                     <td className="leaderboard-player-cell">
                       <div className="player-row">
-                        <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="md" />
+                        <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="lg" />
                         <span>{row.display_name}</span>
                       </div>
                     </td>
@@ -557,7 +557,7 @@ export function TournamentPage() {
                       {round.metadata.bench_players.map((player) => (
                         <span key={player.player_id} className="chip chip-static">
                           <span className="player-row">
-                            <AvatarBadge name={player.display_name} seed={player.player_id} avatarUrl={player.avatar_url} size="md" />
+                            <AvatarBadge name={player.display_name} seed={player.player_id} avatarUrl={player.avatar_url} size="lg" />
                             <span>{player.display_name}</span>
                           </span>
                         </span>

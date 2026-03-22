@@ -62,7 +62,7 @@ export function AuthPage() {
               onClick={() => loginMutation.mutate(player.player_id)}
             >
               <div className="player-row">
-                <AvatarBadge name={player.display_name} seed={player.player_id} avatarUrl={player.avatar_url} size="md" />
+                <AvatarBadge name={player.display_name} seed={player.player_id} avatarUrl={player.avatar_url} size="lg" />
                 <strong>{player.display_name}</strong>
               </div>
               <span className="popup-meta">
