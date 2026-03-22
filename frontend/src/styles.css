@@ -1,9 +1,13 @@
+:root,
+html {
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
 :root {
   font-family: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
   color: #f8f1e7;
   background: #0d161b;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 
 .app-shell {
@@ -1426,6 +1430,51 @@ td {
     min-height: 2.95rem;
     padding: 0.66rem 0.82rem;
     border-radius: 18px;
+  }
+
+  .chip,
+  .selected-player,
+  .player-popup,
+  .score-summary,
+  .round-card {
+    font-size: 0.92rem;
+  }
+
+  .dashboard-grid .stack-form input,
+  .dashboard-grid .stack-form select,
+  .dashboard-grid .inline-form input {
+    min-height: 3.25rem;
+    padding: 0.78rem 0.9rem;
+    font-size: 0.94rem;
+  }
+
+  .dashboard-grid .chip,
+  .dashboard-grid .selected-player,
+  .dashboard-grid .player-popup {
+    min-height: 2.75rem;
+    padding: 0.58rem 0.74rem;
+    font-size: 0.9rem;
+  }
+
+  .page-columns .winner-button {
+    min-height: 3.75rem;
+    padding: 0.82rem 0.9rem;
+    font-size: clamp(0.88rem, 3.1vw, 0.94rem);
+  }
+
+  .page-columns .score-chip {
+    min-height: 2.85rem;
+    padding: 0.62rem 0;
+    font-size: clamp(0.86rem, 3vw, 0.92rem);
+  }
+
+  .page-columns .score-editor,
+  .page-columns .score-preview,
+  .page-columns .score-summary,
+  .page-columns .score-helper,
+  .page-columns .score-save-state,
+  .page-columns .score-field-label {
+    font-size: 0.88rem;
   }
 
   .mini-chart-row {
