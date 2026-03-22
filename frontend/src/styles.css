@@ -167,28 +167,6 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-.achievement-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 5.8rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.achievement-status-live {
-  background: rgba(65, 191, 170, 0.16);
-  color: #b9fff5;
-}
-
-.achievement-status-locked {
-  background: rgba(248, 241, 231, 0.08);
-  color: rgba(248, 241, 231, 0.76);
-}
-
 .achievement-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -745,8 +723,16 @@ td {
   -webkit-overflow-scrolling: touch;
 }
 
+.compact-copy {
+  max-width: 38rem;
+}
+
 .leaderboard-table {
   min-width: 30rem;
+}
+
+.compact-leaderboard-table {
+  min-width: 24rem;
 }
 
 .leaderboard-player-cell {
@@ -1178,6 +1164,10 @@ td {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .winner-grid {
+    grid-template-columns: 1fr;
+  }
+
   .panel,
   .hero-panel {
     padding: 1.35rem;
@@ -1299,14 +1289,37 @@ td {
     min-height: 5.2rem;
     padding: 1.2rem;
     border-radius: 20px;
-    font-size: 1.06rem;
+    font-size: clamp(1.05rem, 4vw, 1.16rem);
   }
 
   .score-chip {
     min-height: 4.25rem;
     padding: 1rem 0;
-    font-size: 1.18rem;
+    font-size: clamp(1.02rem, 4vw, 1.14rem);
     font-weight: 700;
+  }
+
+  .score-editor,
+  .score-preview,
+  .score-summary,
+  .score-helper,
+  .score-save-state,
+  .score-field-label {
+    font-size: 1.02rem;
+  }
+
+  .compact-leaderboard-table th,
+  .compact-leaderboard-table td {
+    padding: 0.72rem 0.5rem;
+    font-size: 0.96rem;
+  }
+
+  .compact-leaderboard-table .leaderboard-player-cell {
+    min-width: 7rem;
+  }
+
+  .compact-leaderboard-table .player-row {
+    gap: 0.5rem;
   }
 
   .player-popup,

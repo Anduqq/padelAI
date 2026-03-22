@@ -186,10 +186,24 @@ export function DashboardPage() {
     }
   });
 
+  const suggestionOrder = new Map((suggestionsQuery.data ?? []).map((item, index) => [item.player_id, index]));
   const filteredPlayers =
-    playersQuery.data?.filter((player) =>
-      player.display_name.toLowerCase().includes(deferredSearch.trim().toLowerCase())
-    ) ?? [];
+    [...(playersQuery.data ?? [])]
+      .filter((player) => player.display_name.toLowerCase().includes(deferredSearch.trim().toLowerCase()))
+      .sort((left, right) => {
+        const leftIndex = suggestionOrder.get(left.id);
+        const rightIndex = suggestionOrder.get(right.id);
+        if (leftIndex === undefined && rightIndex === undefined) {
+          return left.display_name.localeCompare(right.display_name);
+        }
+        if (leftIndex === undefined) {
+          return 1;
+        }
+        if (rightIndex === undefined) {
+          return -1;
+        }
+        return leftIndex - rightIndex;
+      });
 
   const selectedPlayerRows = playersQuery.data?.filter((player) => selectedPlayers.includes(player.id)) ?? [];
 
@@ -372,32 +386,6 @@ export function DashboardPage() {
               </button>
             ))}
           </div>
-
-          {suggestionsQuery.data && suggestionsQuery.data.length > 0 ? (
-            <div className="suggestion-strip">
-              <p className="eyebrow">Suggested from recent history ✨</p>
-              <div className="chip-list">
-                {suggestionsQuery.data.slice(0, 8).map((suggestion) => (
-                  <button
-                    type="button"
-                    key={suggestion.player_id}
-                    className={selectedPlayers.includes(suggestion.player_id) ? "chip chip-active" : "chip"}
-                    onClick={() => togglePlayer(suggestion.player_id)}
-                  >
-                    <span className="player-row">
-                      <AvatarBadge
-                        name={suggestion.display_name}
-                        seed={suggestion.player_id}
-                        avatarUrl={suggestion.avatar_url}
-                        size="sm"
-                      />
-                      <span>{suggestion.display_name}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           <div className="selection-summary-block">
             <div className="selection-summary">

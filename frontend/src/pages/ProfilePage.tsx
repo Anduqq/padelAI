@@ -18,7 +18,6 @@ const TROPHY_ICON = "\uD83C\uDFC6";
 const SILVER_ICON = "\uD83E\uDD48";
 const BRONZE_ICON = "\uD83E\uDD49";
 const SPARKLE_ICON = "\u2728";
-const LOCK_ICON = "\uD83D\uDD12";
 const ADMIN_CAMERA_ICON = "\uD83D\uDCF8";
 const HISTORY_ICON = "\uD83D\uDCDA";
 
@@ -414,16 +413,9 @@ export function ProfilePage() {
               key={achievement.slug}
               className={`achievement-card ${achievement.unlocked ? "" : "achievement-card-locked"}`}
             >
-              <div className="split-row">
-                <span className="achievement-icon" aria-hidden="true">
-                  {achievement.unlocked ? achievement.icon : LOCK_ICON}
-                </span>
-                <span
-                  className={`achievement-status ${achievement.unlocked ? "achievement-status-live" : "achievement-status-locked"}`}
-                >
-                  {achievement.unlocked ? "Unlocked" : "Locked"}
-                </span>
-              </div>
+              <span className="achievement-icon" aria-hidden="true">
+                {achievement.icon}
+              </span>
               <strong>{achievement.title}</strong>
               <p className="muted-text">{achievement.description}</p>
             </article>

@@ -15,7 +15,7 @@ export function EloPage() {
       <div>
         <p className="eyebrow">Rating ladder</p>
         <h2>Elo leaderboard</h2>
-        <p className="muted-text">
+        <p className="muted-text compact-copy">
           This table rewards strong results against strong teams, so it can move differently from the standard points
           leaderboard.
         </p>
@@ -23,7 +23,7 @@ export function EloPage() {
 
       {eloQuery.data && eloQuery.data.length > 0 ? (
         <div className="table-wrap">
-          <table className="leaderboard-table">
+          <table className="leaderboard-table compact-leaderboard-table">
             <thead>
               <tr>
                 <th>Rank</th>
