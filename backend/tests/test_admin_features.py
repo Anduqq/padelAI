@@ -13,14 +13,20 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _create_player(db_session: Session, display_name: str, *, is_admin: bool = False) -> tuple[User, Player]:
+def _create_player(
+    db_session: Session,
+    display_name: str,
+    *,
+    is_admin: bool = False,
+    data_scope: DataScope = DataScope.PROD,
+) -> tuple[User, Player]:
     user = User(
         email=f"{display_name.lower()}-{uuid4().hex[:8]}@test.local",
         full_name=display_name,
         password_hash="disabled",
         is_admin=is_admin,
     )
-    player = Player(display_name=display_name, user=user)
+    player = Player(display_name=display_name, user=user, data_scope=data_scope)
     db_session.add_all([user, player])
     db_session.flush()
     return user, player
@@ -142,3 +148,29 @@ def test_admin_seed_endpoint_builds_demo_test_world(client: TestClient, db_sessi
     tournaments_response = client.get("/api/tournaments")
     assert tournaments_response.status_code == 200
     assert len(tournaments_response.json()) == 12
+
+
+def test_player_lists_stay_prod_only_until_test_scope_is_selected(client: TestClient, db_session: Session) -> None:
+    admin_user, _ = _create_player(db_session, "IAR", is_admin=True)
+    _create_player(db_session, "Claudiu")
+    _create_player(db_session, "Ada", data_scope=DataScope.TEST)
+    db_session.commit()
+
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    prod_players_response = client.get("/api/players")
+    assert prod_players_response.status_code == 200
+    assert [player["display_name"] for player in prod_players_response.json()] == ["Claudiu", "IAR"]
+
+    login_options_response = client.get("/api/auth/options")
+    assert login_options_response.status_code == 200
+    assert [player["display_name"] for player in login_options_response.json()] == ["IAR", "Claudiu"]
+
+    client.cookies.set(settings.data_scope_cookie_name, "test")
+    test_players_response = client.get("/api/players")
+    assert test_players_response.status_code == 200
+    assert [player["display_name"] for player in test_players_response.json()] == ["Ada"]
+
+    prod_only_players_response = client.get("/api/players?scope_filter=prod")
+    assert prod_only_players_response.status_code == 200
+    assert [player["display_name"] for player in prod_only_players_response.json()] == ["Claudiu", "IAR"]

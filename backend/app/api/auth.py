@@ -65,7 +65,12 @@ def _serialize_login_option(player: Player) -> dict:
 @router.get("/options")
 def login_options(db: Annotated[Session, Depends(get_db)]) -> list[dict]:
     players = (
-        db.execute(select(Player).options(selectinload(Player.user)).order_by(Player.display_name))
+        db.execute(
+            select(Player)
+            .where(Player.data_scope == DataScope.PROD)
+            .options(selectinload(Player.user))
+            .order_by(Player.display_name)
+        )
         .scalars()
         .all()
     )
@@ -86,7 +91,11 @@ def select_player(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     player = (
-        db.execute(select(Player).where(Player.id == payload.player_id).options(selectinload(Player.user)))
+        db.execute(
+            select(Player)
+            .where(Player.id == payload.player_id, Player.data_scope == DataScope.PROD)
+            .options(selectinload(Player.user))
+        )
         .scalars()
         .first()
     )

@@ -8,7 +8,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.security import hash_password
-from app.models import Match, Player, ScoreAuditLog, Tournament, TournamentParticipant, User
+from app.models import DataScope, Match, Player, ScoreAuditLog, Tournament, TournamentParticipant, User
 
 
 def normalize_display_name(display_name: str) -> str:
@@ -20,28 +20,39 @@ def build_internal_email(display_name: str) -> str:
     return f"{slug}-{uuid4().hex[:10]}@players.local"
 
 
-def find_player_by_display_name(db: Session, display_name: str) -> Player | None:
+def find_player_by_display_name(
+    db: Session,
+    display_name: str,
+    *,
+    data_scope: DataScope | None = None,
+) -> Player | None:
     normalized = normalize_display_name(display_name)
     if not normalized:
         return None
 
-    return (
-        db.execute(
-            select(Player)
-            .where(func.lower(Player.display_name) == normalized.lower())
-            .options(selectinload(Player.user))
-        )
-        .scalars()
-        .first()
+    statement = (
+        select(Player)
+        .where(func.lower(Player.display_name) == normalized.lower())
+        .options(selectinload(Player.user))
     )
+    if data_scope is not None:
+        statement = statement.where(Player.data_scope == data_scope)
+
+    return db.execute(statement).scalars().first()
 
 
-def create_player_account(db: Session, display_name: str, *, is_admin: bool = False) -> Player:
+def create_player_account(
+    db: Session,
+    display_name: str,
+    *,
+    is_admin: bool = False,
+    data_scope: DataScope = DataScope.PROD,
+) -> Player:
     normalized = normalize_display_name(display_name)
     if len(normalized) < 2:
         raise ValueError("Display name must be at least 2 characters long.")
 
-    if find_player_by_display_name(db, normalized) is not None:
+    if find_player_by_display_name(db, normalized, data_scope=data_scope) is not None:
         raise ValueError("Player name already exists.")
 
     user = User(
@@ -50,7 +61,7 @@ def create_player_account(db: Session, display_name: str, *, is_admin: bool = Fa
         password_hash=hash_password(secrets.token_urlsafe(32)),
         is_admin=is_admin,
     )
-    player = Player(display_name=normalized, user=user)
+    player = Player(display_name=normalized, user=user, data_scope=data_scope)
     db.add(user)
     db.add(player)
     db.flush()
@@ -59,12 +70,13 @@ def create_player_account(db: Session, display_name: str, *, is_admin: bool = Fa
 
 def ensure_primary_admin(db: Session, display_name: str = "IAR") -> Player:
     normalized = normalize_display_name(display_name)
-    player = find_player_by_display_name(db, normalized)
+    player = find_player_by_display_name(db, normalized, data_scope=DataScope.PROD)
 
     if player is None:
-        player = create_player_account(db, normalized, is_admin=True)
+        player = create_player_account(db, normalized, is_admin=True, data_scope=DataScope.PROD)
     else:
         player.display_name = normalized
+        player.data_scope = DataScope.PROD
         if player.user is None:
             player.user = User(
                 email=build_internal_email(normalized),

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
@@ -45,9 +45,16 @@ async def _store_avatar(
 @router.get("")
 def list_players(
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
+    scope_filter: Literal["current", "prod"] = "current",
 ) -> list[dict]:
-    players = db.execute(select(Player).order_by(Player.display_name)).scalars().all()
+    selected_scope = DataScope.PROD if scope_filter == "prod" else current_scope
+    players = (
+        db.execute(select(Player).where(Player.data_scope == selected_scope).order_by(Player.display_name))
+        .scalars()
+        .all()
+    )
     return [_serialize_player(player) for player in players]
 
 
@@ -55,10 +62,11 @@ def list_players(
 def create_player(
     payload: PlayerCreateRequest,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     try:
-        player = create_player_account(db, payload.display_name)
+        player = create_player_account(db, payload.display_name, data_scope=current_scope)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

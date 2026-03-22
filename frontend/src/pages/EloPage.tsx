@@ -40,7 +40,7 @@ export function EloPage() {
                   <td>{row.rank}</td>
                   <td className="leaderboard-player-cell">
                     <div className="player-row">
-                      <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="sm" />
+                      <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="md" />
                       <span>{row.display_name}</span>
                     </div>
                   </td>

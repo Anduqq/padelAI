@@ -18,7 +18,7 @@ export function HeadToHeadPage() {
   });
   const playersQuery = useQuery({
     queryKey: ["players"],
-    queryFn: api.getPlayers
+    queryFn: () => api.getPlayers()
   });
 
   useEffect(() => {

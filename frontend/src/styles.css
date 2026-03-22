@@ -26,9 +26,9 @@
 }
 
 .avatar-sm {
-  width: 1.75rem;
-  height: 1.75rem;
-  font-size: 0.72rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  font-size: 0.88rem;
 }
 
 .avatar-md {
@@ -162,8 +162,6 @@
   font-size: 1.5rem;
 }
 
-.achievement-progress,
-.achievement-progress-copy,
 .mini-chart-list,
 .mini-chart-row,
 .admin-scope-grid {
@@ -172,13 +170,11 @@
 }
 
 .achievement-progress-copy {
-  grid-template-columns: 1fr auto;
-  align-items: center;
+  margin: 0;
   color: rgba(248, 241, 231, 0.72);
-  font-size: 0.86rem;
+  font-size: 0.92rem;
 }
 
-.achievement-progress-track,
 .mini-chart-track {
   position: relative;
   width: 100%;
@@ -188,7 +184,6 @@
   background: rgba(248, 241, 231, 0.08);
 }
 
-.achievement-progress-fill,
 .mini-chart-fill {
   display: block;
   height: 100%;
@@ -238,7 +233,7 @@
 }
 
 .achievement-grid {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .admin-photo-grid,
@@ -1432,6 +1427,10 @@ td {
 
   .mini-chart-row {
     grid-template-columns: 1fr;
+  }
+
+  .achievement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .bracket-tree {

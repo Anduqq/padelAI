@@ -75,10 +75,11 @@ describe("buildTournamentShareText", () => {
   it("includes the full leaderboard and public link", () => {
     const text = buildTournamentShareText(tournament);
 
-    expect(text).toContain("🏆 Champion: IAR");
-    expect(text).toContain("🥇 1. IAR - 35 pts | 6W 1L | diff +17");
-    expect(text).toContain("🥈 2. Radu - 29 pts | 4W 3L | diff +6");
-    expect(text).toContain("🥉 3. Daniel - 24 pts | 3W 4L | diff -4");
+    expect(text).toContain("Champion: IAR");
+    expect(text).toContain("1. IAR - 35 pts | 6W 1L");
+    expect(text).toContain("2. Radu - 29 pts | 4W 3L");
+    expect(text).toContain("3. Daniel - 24 pts | 3W 4L");
+    expect(text).not.toContain("diff");
     expect(text).toContain("https://padel.anduhomelab.dev/tournaments/t-1");
   });
 });

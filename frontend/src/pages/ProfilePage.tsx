@@ -195,8 +195,8 @@ export function ProfilePage() {
   });
 
   const playersQuery = useQuery({
-    queryKey: ["players"],
-    queryFn: api.getPlayers,
+    queryKey: ["players", "prod"],
+    queryFn: () => api.getPlayers("prod"),
     enabled: currentUserQuery.data?.is_admin === true
   });
 
@@ -254,6 +254,22 @@ export function ProfilePage() {
     playersQuery.data?.filter((player) =>
       player.display_name.toLowerCase().includes(deferredPlayerSearch)
     ) ?? [];
+
+  function badgeProgressLabel(achievement: (typeof profile.achievements)[number]) {
+    if (
+      achievement.unlocked ||
+      !achievement.progress_target ||
+      achievement.progress_target <= 1 ||
+      achievement.progress_current === null ||
+      achievement.progress_current === undefined
+    ) {
+      return null;
+    }
+
+    const clampedCurrent = Math.min(achievement.progress_current, achievement.progress_target);
+    const suffix = achievement.progress_suffix ? ` ${achievement.progress_suffix}` : "";
+    return `${clampedCurrent} / ${achievement.progress_target}${suffix}`;
+  }
 
   return (
     <div className="stack-section">
@@ -491,26 +507,8 @@ export function ProfilePage() {
               </span>
               <strong>{achievement.title}</strong>
               <p className="muted-text">{achievement.description}</p>
-              {achievement.progress_target ? (
-                <div className="achievement-progress">
-                  <div className="achievement-progress-copy">
-                    <span>
-                      {Math.min(achievement.progress_current ?? 0, achievement.progress_target)} / {achievement.progress_target}
-                    </span>
-                    {achievement.progress_suffix ? <span>{achievement.progress_suffix}</span> : null}
-                  </div>
-                  <div className="achievement-progress-track">
-                    <span
-                      className="achievement-progress-fill"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          ((achievement.progress_current ?? 0) / achievement.progress_target) * 100
-                        )}%`
-                      }}
-                    />
-                  </div>
-                </div>
+              {badgeProgressLabel(achievement) ? (
+                <p className="achievement-progress-copy">{badgeProgressLabel(achievement)}</p>
               ) : null}
             </article>
           ))}

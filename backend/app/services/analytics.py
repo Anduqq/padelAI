@@ -65,12 +65,15 @@ def _load_scored_matches(db: Session, data_scope: DataScope = DataScope.PROD) ->
     return sorted(matches, key=_match_sort_key)
 
 
-def _load_players(db: Session) -> list[Player]:
-    return db.execute(select(Player).order_by(Player.display_name)).scalars().all()
+def _load_players(db: Session, data_scope: DataScope | None = None) -> list[Player]:
+    statement = select(Player).order_by(Player.display_name)
+    if data_scope is not None:
+        statement = statement.where(Player.data_scope == _scope_query_value(data_scope))
+    return db.execute(statement).scalars().all()
 
 
 def compute_elo_leaderboard(db: Session, data_scope: DataScope = DataScope.PROD) -> list[dict]:
-    players = _load_players(db)
+    players = _load_players(db, data_scope)
     ratings: dict[str, dict] = {
         player.id: {
             **_player_identity(player),
@@ -86,6 +89,19 @@ def compute_elo_leaderboard(db: Session, data_scope: DataScope = DataScope.PROD)
     for match in _load_scored_matches(db, data_scope):
         team_a_ids = [match.team_a_player_1_id, match.team_a_player_2_id]
         team_b_ids = [match.team_b_player_1_id, match.team_b_player_2_id]
+        for player_id in (*team_a_ids, *team_b_ids):
+            if player_id not in ratings:
+                player = db.get(Player, player_id)
+                if player is None:
+                    continue
+                ratings[player_id] = {
+                    **_player_identity(player),
+                    "rating": DEFAULT_ELO_RATING,
+                    "matches_played": 0,
+                    "wins": 0,
+                    "losses": 0,
+                    "draws": 0,
+                }
         average_a = mean(ratings[player_id]["rating"] for player_id in team_a_ids)
         average_b = mean(ratings[player_id]["rating"] for player_id in team_b_ids)
         expected_a = 1.0 / (1.0 + 10 ** ((average_b - average_a) / 400.0))

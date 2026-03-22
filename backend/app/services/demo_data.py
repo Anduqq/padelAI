@@ -25,7 +25,6 @@ from app.services.scoring import CLASSIC_SCORING, default_americano_points_targe
 
 
 DEMO_PLAYER_NAMES = [
-    "IAR",
     "Ada",
     "Ben",
     "Cris",
@@ -73,9 +72,9 @@ def build_admin_overview(db: Session, current_scope: DataScope) -> dict:
 def _ensure_demo_players(db: Session) -> list:
     players = []
     for name in DEMO_PLAYER_NAMES:
-        player = find_player_by_display_name(db, name)
+        player = find_player_by_display_name(db, name, data_scope=DataScope.TEST)
         if player is None:
-            player = create_player_account(db, name, is_admin=name == "IAR")
+            player = create_player_account(db, name, data_scope=DataScope.TEST)
         players.append(player)
     db.flush()
     return players

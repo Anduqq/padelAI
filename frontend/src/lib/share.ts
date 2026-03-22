@@ -17,8 +17,7 @@ function leaderboardEmoji(rank: number) {
 
 function leaderboardLines(tournament: TournamentDetail) {
   return tournament.leaderboard.map(
-    (row) =>
-      `${leaderboardEmoji(row.rank)} ${row.rank}. ${row.display_name} - ${row.points} pts | ${row.wins}W ${row.losses}L | diff ${row.game_diff >= 0 ? "+" : ""}${row.game_diff}`
+    (row) => `${leaderboardEmoji(row.rank)} ${row.rank}. ${row.display_name} - ${row.points} pts | ${row.wins}W ${row.losses}L`
   );
 }
 

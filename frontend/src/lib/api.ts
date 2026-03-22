@@ -63,7 +63,8 @@ export const api = {
     request<void>("/api/auth/logout", {
       method: "POST"
     }),
-  getPlayers: () => request<PlayerSummary[]>("/api/players"),
+  getPlayers: (scopeFilter: "current" | "prod" = "current") =>
+    request<PlayerSummary[]>(`/api/players?scope_filter=${encodeURIComponent(scopeFilter)}`),
   createPlayer: (payload: { display_name: string }) =>
     request<PlayerSummary>("/api/players", {
       method: "POST",

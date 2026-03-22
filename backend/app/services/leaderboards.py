@@ -96,7 +96,11 @@ def compute_tournament_standings(db: Session, tournament_id: str) -> list[dict]:
 
 
 def compute_global_leaderboard(db: Session, data_scope: DataScope = DataScope.PROD) -> list[dict]:
-    players = db.execute(select(Player).order_by(Player.display_name)).scalars().all()
+    players = (
+        db.execute(select(Player).where(Player.data_scope == _scope_query_value(data_scope)).order_by(Player.display_name))
+        .scalars()
+        .all()
+    )
     rows = {player.id: _player_base_row(player) for player in players}
 
     matches = (
@@ -109,9 +113,19 @@ def compute_global_leaderboard(db: Session, data_scope: DataScope = DataScope.PR
             continue
 
         for player_id in (match.team_a_player_1_id, match.team_a_player_2_id):
+            if player_id not in rows:
+                player = db.get(Player, player_id)
+                if player is None:
+                    continue
+                rows[player_id] = _player_base_row(player)
             _apply_match_result(rows[player_id], match.team_a_games, match.team_b_games)
 
         for player_id in (match.team_b_player_1_id, match.team_b_player_2_id):
+            if player_id not in rows:
+                player = db.get(Player, player_id)
+                if player is None:
+                    continue
+                rows[player_id] = _player_base_row(player)
             _apply_match_result(rows[player_id], match.team_b_games, match.team_a_games)
 
     tournament_counts = defaultdict(int)
@@ -190,7 +204,11 @@ def build_player_stats(db: Session, player_id: str, data_scope: DataScope = Data
 
 
 def build_player_suggestions(db: Session, limit: int = 12, data_scope: DataScope = DataScope.PROD) -> list[dict]:
-    players = db.execute(select(Player).order_by(Player.display_name)).scalars().all()
+    players = (
+        db.execute(select(Player).where(Player.data_scope == _scope_query_value(data_scope)).order_by(Player.display_name))
+        .scalars()
+        .all()
+    )
     tournaments = {
         tournament.id: tournament
         for tournament in db.execute(select(Tournament).where(Tournament.data_scope == _scope_query_value(data_scope)))

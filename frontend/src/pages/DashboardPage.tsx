@@ -99,7 +99,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const tournamentsQuery = useQuery({ queryKey: ["tournaments"], queryFn: api.getTournaments });
-  const playersQuery = useQuery({ queryKey: ["players"], queryFn: api.getPlayers });
+  const playersQuery = useQuery({ queryKey: ["players"], queryFn: () => api.getPlayers() });
   const suggestionsQuery = useQuery({ queryKey: ["suggestions"], queryFn: api.getSuggestions });
   const selectionState = describeSelection(selectedPlayers.length, courtCount);
   const recommendedScoring = getRecommendedScoringSetup(format, selectionState.activePlayerCount);
@@ -380,7 +380,7 @@ export function DashboardPage() {
                 onClick={() => togglePlayer(player.id)}
               >
                 <span className="player-row">
-                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="sm" />
+                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="md" />
                   <span>{player.display_name}</span>
                 </span>
               </button>
@@ -403,7 +403,7 @@ export function DashboardPage() {
                     onClick={() => togglePlayer(player.id)}
                   >
                     <span className="player-row">
-                      <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="sm" />
+                      <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="md" />
                       <span>{player.display_name}</span>
                     </span>
                   </button>
