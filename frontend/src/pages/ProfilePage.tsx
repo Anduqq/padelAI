@@ -105,7 +105,7 @@ function ChemistryCard({
       <h3>{title}</h3>
       {row ? (
         <div className="chemistry-body">
-          <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="lg" />
+          <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="md" />
           <div>
             <strong>{row.display_name}</strong>
             <p className="muted-text">
@@ -156,7 +156,7 @@ function ChemistryMiniChart({
               <div key={`${eyebrow}-${row.player_id}`} className="mini-chart-row">
                 <div className="mini-chart-copy">
                   <div className="player-row">
-                    <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="lg" />
+                    <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="md" />
                     <strong>{row.display_name}</strong>
                   </div>
                   <span className="muted-text">
@@ -356,7 +356,7 @@ export function ProfilePage() {
             {manageablePlayers.map((player) => (
               <article key={player.id} className="admin-photo-card">
                 <div className="player-row">
-                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="lg" />
+                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="md" />
                   <div>
                     <strong>{player.display_name}</strong>
                     {player.id === profile.player_id ? <p className="muted-text">Current profile</p> : null}

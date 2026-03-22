@@ -380,7 +380,7 @@ export function DashboardPage() {
                 onClick={() => togglePlayer(player.id)}
               >
                 <span className="player-row">
-                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="lg" />
+                  <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="md" />
                   <span>{player.display_name}</span>
                 </span>
               </button>
@@ -403,7 +403,7 @@ export function DashboardPage() {
                     onClick={() => togglePlayer(player.id)}
                   >
                     <span className="player-row">
-                      <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="lg" />
+                      <AvatarBadge name={player.display_name} seed={player.id} avatarUrl={player.avatar_url} size="md" />
                       <span>{player.display_name}</span>
                     </span>
                   </button>

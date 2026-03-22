@@ -64,7 +64,7 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
                 name={currentUser.display_name}
                 seed={currentUser.player_id}
                 avatarUrl={currentUser.avatar_url}
-                size="lg"
+                size="md"
               />
               <span>
                 {currentUser.display_name}

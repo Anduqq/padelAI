@@ -11,7 +11,7 @@
 .player-row {
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   min-width: 0;
 }
 
@@ -38,9 +38,9 @@
 }
 
 .avatar-lg {
-  width: clamp(3.9rem, 17vw, 4.6rem);
-  height: clamp(3.9rem, 17vw, 4.6rem);
-  font-size: clamp(1rem, 4vw, 1.15rem);
+  width: clamp(3.4rem, 15vw, 4.25rem);
+  height: clamp(3.4rem, 15vw, 4.25rem);
+  font-size: clamp(0.94rem, 3.6vw, 1.08rem);
 }
 
 .empty-state-card {
@@ -1420,9 +1420,9 @@ td {
   .player-popup,
   .chip,
   .selected-player {
-    min-height: 3.7rem;
-    padding: 0.95rem 1rem;
-    border-radius: 20px;
+    min-height: 3.1rem;
+    padding: 0.72rem 0.88rem;
+    border-radius: 18px;
   }
 
   .mini-chart-row {
