@@ -168,7 +168,10 @@ export function DashboardPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["tournaments"] }),
         queryClient.invalidateQueries({ queryKey: ["global-leaderboard"] }),
-        queryClient.invalidateQueries({ queryKey: ["my-stats"] })
+        queryClient.invalidateQueries({ queryKey: ["elo-leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["head-to-head"] }),
+        queryClient.invalidateQueries({ queryKey: ["tournament"] })
       ]);
     }
   });
@@ -462,7 +465,12 @@ export function DashboardPage() {
           <h2>Completed tournaments</h2>
           <div className="card-grid">
             {completedTournaments.map((tournament) => (
-              <TournamentCard key={tournament.id} tournament={tournament} />
+              <TournamentCard
+                key={tournament.id}
+                tournament={tournament}
+                busy={deleteTournament.isPending}
+                onDelete={(selectedTournament) => handleDeleteTournament(selectedTournament.id)}
+              />
             ))}
             {completedTournaments.length === 0 ? (
               <EmptyState

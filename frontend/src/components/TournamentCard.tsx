@@ -14,7 +14,7 @@ interface TournamentCardProps {
 
 export function TournamentCard({ tournament, busy = false, onStart, onDelete }: TournamentCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const isCompleted = tournament.status === "completed";
+  const canShowMenu = Boolean(onDelete || (tournament.status === "draft" && onStart));
 
   return (
     <article className="panel tournament-card">
@@ -25,7 +25,7 @@ export function TournamentCard({ tournament, busy = false, onStart, onDelete }: 
         </div>
         <div className="tournament-card-actions">
           <span className={`status-badge status-${tournament.status}`}>{formatStatus(tournament.status)}</span>
-          {!isCompleted ? (
+          {canShowMenu ? (
             <details
               className="context-menu-shell"
               onToggle={(event) => {

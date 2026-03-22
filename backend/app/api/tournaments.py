@@ -739,8 +739,6 @@ def delete_tournament(
     ).scalars().first()
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
-    if tournament.status == TournamentStatus.COMPLETED:
-        raise HTTPException(status_code=400, detail="Completed tournaments can only be viewed from the archive.")
 
     _delete_tournament_dependencies(db, tournament.id)
     db.delete(tournament)

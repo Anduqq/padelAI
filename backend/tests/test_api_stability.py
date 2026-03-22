@@ -7,7 +7,19 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import create_access_token
-from app.models import Match, Player, Round, RoundStatus, StandingsSnapshot, Tournament, TournamentFormat, TournamentParticipant, TournamentStatus, User
+from app.models import (
+    Match,
+    Player,
+    Round,
+    RoundStatus,
+    ScoreAuditLog,
+    StandingsSnapshot,
+    Tournament,
+    TournamentFormat,
+    TournamentParticipant,
+    TournamentStatus,
+    User,
+)
 from app.api import tournaments as tournaments_api
 from app.services.leaderboards import compute_tournament_standings
 
@@ -69,18 +81,35 @@ def _seed_completed_tournament(db_session: Session) -> tuple[User, Tournament]:
     db_session.add(round_row)
     db_session.flush()
 
+    match = Match(
+        tournament_id=tournament.id,
+        round_id=round_row.id,
+        court_number=1,
+        team_a_player_1_id=iar_player.id,
+        team_a_player_2_id=ada.id,
+        team_b_player_1_id=ben.id,
+        team_b_player_2_id=cris.id,
+        team_a_games=6,
+        team_b_games=4,
+        version=2,
+    )
+    db_session.add(match)
+    db_session.flush()
     db_session.add(
-        Match(
+        StandingsSnapshot(
             tournament_id=tournament.id,
-            round_id=round_row.id,
-            court_number=1,
-            team_a_player_1_id=iar_player.id,
-            team_a_player_2_id=ada.id,
-            team_b_player_1_id=ben.id,
-            team_b_player_2_id=cris.id,
-            team_a_games=6,
-            team_b_games=4,
-            version=2,
+            round_number=1,
+            standings_json=[{"player_id": iar_player.id, "points": 6}],
+        )
+    )
+    db_session.add(
+        ScoreAuditLog(
+            match_id=match.id,
+            changed_by_user_id=admin_user.id,
+            previous_team_a_games=None,
+            previous_team_b_games=None,
+            new_team_a_games=6,
+            new_team_b_games=4,
         )
     )
     db_session.commit()
@@ -495,6 +524,24 @@ def test_delete_tournament_removes_non_completed_sessions(client: TestClient, db
     response = client.delete(f"/api/tournaments/{tournament.id}")
     assert response.status_code == 204
     assert db_session.get(Tournament, tournament.id) is None
+
+
+def test_delete_tournament_removes_completed_archive_sessions(client: TestClient, db_session: Session) -> None:
+    admin_user, tournament = _seed_completed_tournament(db_session)
+    client.cookies.set(settings.cookie_name, create_access_token(admin_user.id))
+
+    response = client.delete(f"/api/tournaments/{tournament.id}")
+    assert response.status_code == 204
+    assert db_session.get(Tournament, tournament.id) is None
+    assert db_session.execute(select(Round).where(Round.tournament_id == tournament.id)).scalars().all() == []
+    assert db_session.execute(select(Match).where(Match.tournament_id == tournament.id)).scalars().all() == []
+    assert (
+        db_session.execute(select(StandingsSnapshot).where(StandingsSnapshot.tournament_id == tournament.id))
+        .scalars()
+        .all()
+        == []
+    )
+    assert db_session.execute(select(ScoreAuditLog)).scalars().all() == []
 
 
 def test_delete_tournament_removes_active_sessions_with_related_rows(client: TestClient, db_session: Session) -> None:
