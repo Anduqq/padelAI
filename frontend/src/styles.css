@@ -1496,4 +1496,98 @@ td {
   .screen-shell {
     padding: calc(0.75rem + env(safe-area-inset-top)) 0.75rem calc(0.9rem + env(safe-area-inset-bottom));
   }
+
+  .dashboard-grid .panel,
+  .page-columns .panel,
+  .page-columns .round-card {
+    padding: 1.05rem;
+  }
+
+  .dashboard-grid h2,
+  .page-columns h2 {
+    font-size: 1.28rem;
+    line-height: 1.08;
+  }
+
+  .dashboard-grid h3,
+  .page-columns h3 {
+    font-size: 1.02rem;
+  }
+
+  .dashboard-grid .primary-button,
+  .dashboard-grid .secondary-button,
+  .dashboard-grid .ghost-button,
+  .dashboard-grid .danger-button,
+  .page-columns .primary-button,
+  .page-columns .secondary-button,
+  .page-columns .ghost-button,
+  .page-columns .danger-button {
+    min-height: 3.35rem;
+    padding: 0.8rem 0.92rem;
+    font-size: 0.94rem;
+    border-radius: 18px;
+  }
+
+  .dashboard-grid .stack-form input,
+  .dashboard-grid .stack-form select,
+  .dashboard-grid .inline-form input,
+  .page-columns .score-editor input {
+    min-height: 3.05rem;
+    padding: 0.72rem 0.82rem;
+    font-size: 0.92rem;
+  }
+
+  .dashboard-grid .chip,
+  .dashboard-grid .selected-player,
+  .dashboard-grid .player-popup {
+    min-height: 2.55rem;
+    padding: 0.52rem 0.68rem;
+    font-size: 0.88rem;
+  }
+
+  .dashboard-grid .selection-summary-block {
+    min-height: 4.6rem;
+    padding: 0.78rem 0.88rem;
+  }
+
+  .page-columns .winner-button {
+    min-height: 3.2rem;
+    padding: 0.72rem 0.82rem;
+    font-size: clamp(0.84rem, 2.95vw, 0.9rem);
+    gap: 0.4rem;
+  }
+
+  .page-columns .score-chip-grid {
+    gap: 0.35rem;
+  }
+
+  .page-columns .score-chip {
+    min-height: 2.55rem;
+    padding: 0.52rem 0;
+    font-size: clamp(0.82rem, 2.9vw, 0.88rem);
+  }
+
+  .page-columns .score-editor {
+    gap: 0.72rem;
+    padding: 0.84rem;
+  }
+
+  .page-columns .score-preview {
+    padding: 0.72rem 0.84rem;
+  }
+
+  .page-columns .score-editor,
+  .page-columns .score-preview,
+  .page-columns .score-summary,
+  .page-columns .score-helper,
+  .page-columns .score-save-state,
+  .page-columns .score-field-label {
+    font-size: 0.86rem;
+  }
+
+  .page-columns .muted-text,
+  .dashboard-grid .muted-text,
+  .dashboard-grid .stat-label {
+    font-size: 0.86rem;
+  }
 }
