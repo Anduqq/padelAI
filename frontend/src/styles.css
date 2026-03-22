@@ -829,6 +829,21 @@ td {
   white-space: nowrap;
 }
 
+.tournament-leaderboard-table th:first-child,
+.tournament-leaderboard-table .leaderboard-place-cell {
+  width: 1%;
+  min-width: 3.8rem;
+  padding-right: 0.45rem;
+}
+
+.tournament-leaderboard-table .leaderboard-player-cell {
+  min-width: 7rem;
+}
+
+.tournament-leaderboard-table .player-row {
+  gap: 0.45rem;
+}
+
 .eyebrow {
   margin: 0 0 0.4rem;
   text-transform: uppercase;
@@ -1180,7 +1195,7 @@ td {
 .tournament-card-header,
 .tournament-card-actions {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
@@ -1190,6 +1205,9 @@ td {
 }
 
 .context-menu-shell summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   list-style: none;
 }
 
@@ -1198,7 +1216,26 @@ td {
 }
 
 .menu-toggle {
-  padding-inline: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.45rem;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid rgba(248, 241, 231, 0.12);
+  background: rgba(248, 241, 231, 0.06);
+  color: rgba(248, 241, 231, 0.84);
+  text-align: center;
+  line-height: 1;
+}
+
+.menu-toggle:hover,
+.context-menu-shell[open] .menu-toggle {
+  background: rgba(248, 241, 231, 0.1);
+}
+
+.menu-toggle,
+.menu-toggle:hover {
+  transform: none;
 }
 
 .context-menu {
@@ -1418,6 +1455,16 @@ td {
 
   .compact-leaderboard-table .leaderboard-player-cell {
     min-width: 7rem;
+  }
+
+  .tournament-leaderboard-table th:first-child,
+  .tournament-leaderboard-table .leaderboard-place-cell {
+    min-width: 3.35rem;
+    padding-right: 0.35rem;
+  }
+
+  .tournament-leaderboard-table .leaderboard-player-cell {
+    min-width: 6.4rem;
   }
 
   .compact-leaderboard-table .player-row {

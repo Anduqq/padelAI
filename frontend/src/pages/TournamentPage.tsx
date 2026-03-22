@@ -503,7 +503,7 @@ export function TournamentPage() {
           {tournament.status === "completed" ? <Podium tournament={tournament} /> : null}
 
           <div className="table-wrap">
-            <table className="leaderboard-table">
+            <table className="leaderboard-table tournament-leaderboard-table">
               <thead>
                 <tr>
                   <th>Place</th>
