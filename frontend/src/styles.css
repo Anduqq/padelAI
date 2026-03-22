@@ -1503,6 +1503,12 @@ td {
     padding: 1.05rem;
   }
 
+  .dashboard-grid,
+  .page-columns {
+    gap: 1rem;
+    font-size: 0.88rem;
+  }
+
   .dashboard-grid h2,
   .page-columns h2 {
     font-size: 1.28rem;
@@ -1528,6 +1534,38 @@ td {
     border-radius: 18px;
   }
 
+  .dashboard-grid .panel,
+  .dashboard-grid .inset-panel,
+  .page-columns .panel,
+  .page-columns .round-card {
+    padding: 0.95rem !important;
+  }
+
+  .dashboard-grid h2,
+  .page-columns h2 {
+    font-size: 1.14rem !important;
+    line-height: 1.06;
+  }
+
+  .dashboard-grid h3,
+  .page-columns h3 {
+    font-size: 0.96rem !important;
+  }
+
+  .dashboard-grid .eyebrow,
+  .page-columns .eyebrow {
+    font-size: 0.7rem !important;
+  }
+
+  .dashboard-grid .muted-text,
+  .page-columns .muted-text,
+  .dashboard-grid .stat-label,
+  .page-columns .stat-label,
+  .dashboard-grid label span,
+  .page-columns label span {
+    font-size: 0.82rem !important;
+  }
+
   .dashboard-grid .stack-form input,
   .dashboard-grid .stack-form select,
   .dashboard-grid .inline-form input,
@@ -1537,12 +1575,29 @@ td {
     font-size: 0.92rem;
   }
 
+  .dashboard-grid .stack-form input,
+  .dashboard-grid .stack-form select,
+  .dashboard-grid .inline-form input,
+  .page-columns .score-editor input {
+    min-height: 2.9rem !important;
+    padding: 0.66rem 0.78rem !important;
+    font-size: 0.88rem !important;
+  }
+
   .dashboard-grid .chip,
   .dashboard-grid .selected-player,
   .dashboard-grid .player-popup {
     min-height: 2.55rem;
     padding: 0.52rem 0.68rem;
     font-size: 0.88rem;
+  }
+
+  .dashboard-grid .chip,
+  .dashboard-grid .selected-player,
+  .dashboard-grid .player-popup {
+    min-height: 2.4rem !important;
+    padding: 0.46rem 0.62rem !important;
+    font-size: 0.84rem !important;
   }
 
   .dashboard-grid .selection-summary-block {
@@ -1557,6 +1612,18 @@ td {
     gap: 0.4rem;
   }
 
+  .page-columns .winner-button {
+    min-height: 2.95rem !important;
+    padding: 0.58rem 0.7rem !important;
+    font-size: clamp(0.78rem, 2.8vw, 0.86rem) !important;
+    gap: 0.28rem;
+  }
+
+  .page-columns .winner-button strong {
+    font-size: 0.88rem;
+    line-height: 1.18;
+  }
+
   .page-columns .score-chip-grid {
     gap: 0.35rem;
   }
@@ -1567,13 +1634,28 @@ td {
     font-size: clamp(0.82rem, 2.9vw, 0.88rem);
   }
 
+  .page-columns .score-chip {
+    min-height: 2.35rem !important;
+    padding: 0.42rem 0 !important;
+    font-size: clamp(0.76rem, 2.7vw, 0.84rem) !important;
+  }
+
   .page-columns .score-editor {
     gap: 0.72rem;
     padding: 0.84rem;
   }
 
+  .page-columns .score-editor {
+    gap: 0.56rem !important;
+    padding: 0.7rem !important;
+  }
+
   .page-columns .score-preview {
     padding: 0.72rem 0.84rem;
+  }
+
+  .page-columns .score-preview {
+    padding: 0.58rem 0.7rem !important;
   }
 
   .page-columns .score-editor,
@@ -1589,5 +1671,17 @@ td {
   .dashboard-grid .muted-text,
   .dashboard-grid .stat-label {
     font-size: 0.86rem;
+  }
+
+  .page-columns .score-editor,
+  .page-columns .score-preview,
+  .page-columns .score-summary,
+  .page-columns .score-helper,
+  .page-columns .score-save-state,
+  .page-columns .score-field-label,
+  .page-columns .muted-text,
+  .dashboard-grid .muted-text,
+  .dashboard-grid .stat-label {
+    font-size: 0.8rem !important;
   }
 }
