@@ -8,6 +8,7 @@ const tournament = {
   name: "Friday Night",
   format: "americano",
   status: "completed",
+  data_scope: "prod",
   court_count: 2,
   target_rounds: 7,
   scoring_system: "americano_points",

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     secret_key: str = Field(default="change-me-before-production", alias="SECRET_KEY")
     access_token_expire_minutes: int = Field(default=60 * 24 * 7, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
     cookie_name: str = Field(default="padel_session", alias="COOKIE_NAME")
+    data_scope_cookie_name: str = Field(default="padel_scope", alias="DATA_SCOPE_COOKIE_NAME")
+    default_data_scope: str = Field(default="prod", alias="DEFAULT_DATA_SCOPE")
     secure_cookies: bool = Field(default=True, alias="SECURE_COOKIES")
     app_host: str = Field(default="0.0.0.0", alias="APP_HOST")
     app_port: int = Field(default=8000, alias="APP_PORT")

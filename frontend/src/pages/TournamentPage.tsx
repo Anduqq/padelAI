@@ -27,11 +27,32 @@ function teamLabelLines(label: string) {
   return label.split(" + ").map((item) => item.trim());
 }
 
+function colorFromLabel(label: string) {
+  let hash = 0;
+  for (const character of label) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 360;
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    fill: `hsla(${hue} 72% 62% / 0.16)`,
+    stroke: `hsla(${hue} 78% 68% / 0.92)`,
+    text: `hsla(${hue} 100% 92% / 1)`,
+    glow: `hsla(${hue} 78% 68% / 0.34)`
+  };
+}
+
 function winningLabel(match: { team_a_label: string; team_b_label: string; team_a_score: number | null; team_b_score: number | null }) {
   if (match.team_a_score === null || match.team_b_score === null || match.team_a_score === match.team_b_score) {
     return null;
   }
   return match.team_a_score > match.team_b_score ? match.team_a_label : match.team_b_label;
+}
+
+function winningSide(match: { team_a_score: number | null; team_b_score: number | null }) {
+  if (match.team_a_score === null || match.team_b_score === null || match.team_a_score === match.team_b_score) {
+    return null;
+  }
+  return match.team_a_score > match.team_b_score ? "team_a" : "team_b";
 }
 
 function placementLabel(rank: number, isCompleted: boolean) {
@@ -58,7 +79,7 @@ function Podium({ tournament }: { tournament: TournamentDetail }) {
     return null;
   }
   return (
-    <section className="podium-panel confetti-panel">
+    <section className="podium-panel confetti-panel podium-animate">
       <div className="split-row">
         <div>
           <p className="eyebrow">Final leaderboard</p>
@@ -69,7 +90,7 @@ function Podium({ tournament }: { tournament: TournamentDetail }) {
           <button type="button" className="secondary-button" onClick={() => openTournamentWhatsAppShare(tournament)}>Share on WhatsApp</button>
         </div>
       </div>
-      <article className="podium-hero">
+      <article className="podium-hero podium-stage podium-stage-delay-1">
         <div className="podium-hero-icon-wrap">
           <span className="podium-hero-icon" role="img" aria-label="trophy">{TROPHY_ICON}</span>
           <AvatarBadge name={champion.display_name} seed={champion.player_id} avatarUrl={champion.avatar_url} size="lg" />
@@ -81,8 +102,8 @@ function Podium({ tournament }: { tournament: TournamentDetail }) {
         </div>
       </article>
       <div className="podium-grid">
-        {runnerUp ? <article className="podium-card podium-card-silver"><span className="podium-card-icon" role="img" aria-label="silver medal">{SILVER_ICON}</span><span className="podium-card-label">Runner-up</span><strong>{runnerUp.display_name}</strong><span>{runnerUp.points} pts | {runnerUp.wins}W {runnerUp.losses}L</span></article> : null}
-        {thirdPlace ? <article className="podium-card podium-card-bronze"><span className="podium-card-icon" role="img" aria-label="bronze medal">{BRONZE_ICON}</span><span className="podium-card-label">Third place</span><strong>{thirdPlace.display_name}</strong><span>{thirdPlace.points} pts | {thirdPlace.wins}W {thirdPlace.losses}L</span></article> : null}
+        {runnerUp ? <article className="podium-card podium-card-silver podium-stage podium-stage-delay-2"><span className="podium-card-icon" role="img" aria-label="silver medal">{SILVER_ICON}</span><span className="podium-card-label">Runner-up</span><strong>{runnerUp.display_name}</strong><span>{runnerUp.points} pts | {runnerUp.wins}W {runnerUp.losses}L</span></article> : null}
+        {thirdPlace ? <article className="podium-card podium-card-bronze podium-stage podium-stage-delay-3"><span className="podium-card-icon" role="img" aria-label="bronze medal">{BRONZE_ICON}</span><span className="podium-card-label">Third place</span><strong>{thirdPlace.display_name}</strong><span>{thirdPlace.points} pts | {thirdPlace.wins}W {thirdPlace.losses}L</span></article> : null}
       </div>
     </section>
   );
@@ -178,20 +199,47 @@ function BracketGraph({ graph }: { graph: TournamentDetail["bracket_graph"] }) {
                   const targetCenterY = targetIndex >= 0 ? nextStageLayouts[targetIndex].centerY : null;
                   const elbowX = currentRight + stageGap / 2;
                   const winner = winningLabel(match);
+                  const winnerSideValue = winningSide(match);
                   const highlightTeamA = match.team_a_label === championLabel;
                   const highlightTeamB = match.team_b_label === championLabel;
                   const highlightConnector = winner === championLabel && targetCenterY !== null;
+                  const teamAColor = colorFromLabel(match.team_a_label);
+                  const teamBColor = colorFromLabel(match.team_b_label);
                   return (
                     <g key={`${stage.round_id}-${match.court_number}`}>
-                      <rect x={stageX} y={topRowY} width={boxWidth} height={teamBoxHeight} rx={14} className={highlightTeamA ? "bracket-box bracket-box-highlight" : "bracket-box"} />
-                      <rect x={stageX} y={bottomRowY} width={boxWidth} height={teamBoxHeight} rx={14} className={highlightTeamB ? "bracket-box bracket-box-highlight" : "bracket-box"} />
-                      <text x={stageX + 14} y={topRowY + 20} className={highlightTeamA ? "bracket-label bracket-label-highlight" : "bracket-label"}>{teamLabelLines(match.team_a_label).map((line, lineIndex) => <tspan key={`${stage.round_id}-${match.court_number}-a-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>{line}</tspan>)}</text>
-                      <text x={stageX + 14} y={bottomRowY + 20} className={highlightTeamB ? "bracket-label bracket-label-highlight" : "bracket-label"}>{teamLabelLines(match.team_b_label).map((line, lineIndex) => <tspan key={`${stage.round_id}-${match.court_number}-b-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>{line}</tspan>)}</text>
+                      <rect
+                        x={stageX}
+                        y={topRowY}
+                        width={boxWidth}
+                        height={teamBoxHeight}
+                        rx={14}
+                        className={highlightTeamA ? "bracket-box bracket-box-highlight" : "bracket-box"}
+                        style={{ fill: teamAColor.fill, stroke: teamAColor.stroke, filter: highlightTeamA ? `drop-shadow(0 0 10px ${teamAColor.glow})` : undefined }}
+                      />
+                      <rect
+                        x={stageX}
+                        y={bottomRowY}
+                        width={boxWidth}
+                        height={teamBoxHeight}
+                        rx={14}
+                        className={highlightTeamB ? "bracket-box bracket-box-highlight" : "bracket-box"}
+                        style={{ fill: teamBColor.fill, stroke: teamBColor.stroke, filter: highlightTeamB ? `drop-shadow(0 0 10px ${teamBColor.glow})` : undefined }}
+                      />
+                      <text x={stageX + 14} y={topRowY + 20} className={highlightTeamA ? "bracket-label bracket-label-highlight" : "bracket-label"} style={{ fill: highlightTeamA ? teamAColor.text : undefined }}>{teamLabelLines(match.team_a_label).map((line, lineIndex) => <tspan key={`${stage.round_id}-${match.court_number}-a-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>{line}</tspan>)}</text>
+                      <text x={stageX + 14} y={bottomRowY + 20} className={highlightTeamB ? "bracket-label bracket-label-highlight" : "bracket-label"} style={{ fill: highlightTeamB ? teamBColor.text : undefined }}>{teamLabelLines(match.team_b_label).map((line, lineIndex) => <tspan key={`${stage.round_id}-${match.court_number}-b-${lineIndex}`} x={stageX + 14} dy={lineIndex === 0 ? 0 : 14}>{line}</tspan>)}</text>
                       <text x={stageX + boxWidth - 18} y={topRowY + 31} textAnchor="end" className="bracket-score">{match.team_a_score ?? "-"}</text>
                       <text x={stageX + boxWidth - 18} y={bottomRowY + 31} textAnchor="end" className="bracket-score">{match.team_b_score ?? "-"}</text>
                       {targetCenterY !== null ? <>
-                        <path className={highlightConnector ? "bracket-connector bracket-connector-highlight" : "bracket-connector"} d={`M ${currentRight} ${topCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`} />
-                        <path className={highlightConnector ? "bracket-connector bracket-connector-highlight" : "bracket-connector"} d={`M ${currentRight} ${bottomCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`} />
+                        <path
+                          className={highlightConnector && winnerSideValue === "team_a" ? "bracket-connector bracket-connector-highlight" : "bracket-connector"}
+                          style={{ stroke: teamAColor.stroke, opacity: winnerSideValue === "team_a" ? 1 : 0.36 }}
+                          d={`M ${currentRight} ${topCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`}
+                        />
+                        <path
+                          className={highlightConnector && winnerSideValue === "team_b" ? "bracket-connector bracket-connector-highlight" : "bracket-connector"}
+                          style={{ stroke: teamBColor.stroke, opacity: winnerSideValue === "team_b" ? 1 : 0.36 }}
+                          d={`M ${currentRight} ${bottomCenterY} H ${elbowX} V ${targetCenterY} H ${stageX + boxWidth + stageGap}`}
+                        />
                       </> : null}
                     </g>
                   );

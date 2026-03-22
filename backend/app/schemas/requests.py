@@ -40,3 +40,12 @@ class ScoreUpdateRequest(BaseModel):
     team_a_games: int = Field(ge=0, le=99)
     team_b_games: int = Field(ge=0, le=99)
     version: int = Field(ge=1)
+
+
+class ScopeUpdateRequest(BaseModel):
+    scope: Literal["prod", "test"]
+
+
+class DemoSeedRequest(BaseModel):
+    tournament_count: int = Field(default=100, ge=1, le=300)
+    replace_existing: bool = True

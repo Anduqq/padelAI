@@ -7,12 +7,16 @@ from statistics import mean
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Match, Player, Round, StandingsSnapshot, Tournament, TournamentParticipant
-from app.services.leaderboards import _player_base_row, _sorted_rows, compute_global_leaderboard, compute_tournament_standings
+from app.models import DataScope, Match, Player, Round, StandingsSnapshot, Tournament, TournamentParticipant
+from app.services.leaderboards import _player_base_row, compute_global_leaderboard, compute_tournament_standings
 from app.services.player_media import build_avatar_url
 
 DEFAULT_ELO_RATING = 1000.0
 ELO_K_FACTOR = 24.0
+
+
+def _scope_query_value(data_scope: DataScope | str) -> DataScope:
+    return data_scope if isinstance(data_scope, DataScope) else DataScope(str(data_scope))
 
 
 def _coerce_utc(value: datetime | None) -> datetime | None:
@@ -40,11 +44,16 @@ def _match_sort_key(match: Match) -> tuple[datetime, int, int]:
     )
 
 
-def _load_scored_matches(db: Session) -> list[Match]:
+def _load_scored_matches(db: Session, data_scope: DataScope = DataScope.PROD) -> list[Match]:
     matches = (
         db.execute(
             select(Match)
-            .where(Match.team_a_games.is_not(None), Match.team_b_games.is_not(None))
+            .join(Tournament)
+            .where(
+                Tournament.data_scope == _scope_query_value(data_scope),
+                Match.team_a_games.is_not(None),
+                Match.team_b_games.is_not(None),
+            )
             .options(
                 selectinload(Match.tournament),
                 selectinload(Match.round),
@@ -60,7 +69,7 @@ def _load_players(db: Session) -> list[Player]:
     return db.execute(select(Player).order_by(Player.display_name)).scalars().all()
 
 
-def compute_elo_leaderboard(db: Session) -> list[dict]:
+def compute_elo_leaderboard(db: Session, data_scope: DataScope = DataScope.PROD) -> list[dict]:
     players = _load_players(db)
     ratings: dict[str, dict] = {
         player.id: {
@@ -74,7 +83,7 @@ def compute_elo_leaderboard(db: Session) -> list[dict]:
         for player in players
     }
 
-    for match in _load_scored_matches(db):
+    for match in _load_scored_matches(db, data_scope):
         team_a_ids = [match.team_a_player_1_id, match.team_a_player_2_id]
         team_b_ids = [match.team_b_player_1_id, match.team_b_player_2_id]
         average_a = mean(ratings[player_id]["rating"] for player_id in team_a_ids)
@@ -168,13 +177,40 @@ def _streaks_from_results(results: list[str]) -> dict:
     }
 
 
-def _collect_player_match_insights(db: Session, player_id: str) -> dict:
+def _best_bounce_back_run(results: list[str]) -> int:
+    best_run = 0
+    for index, result in enumerate(results):
+        if result != "L":
+            continue
+
+        run = 0
+        for next_result in results[index + 1 : index + 4]:
+            if next_result != "W":
+                break
+            run += 1
+        best_run = max(best_run, run)
+    return best_run
+
+
+def _top_list(items: list[dict], *, max_items: int = 4) -> list[dict]:
+    return items[:max_items]
+
+
+def _collect_player_match_insights(
+    db: Session,
+    player_id: str,
+    *,
+    data_scope: DataScope,
+    elo_by_player: dict[str, dict],
+) -> dict:
     players = {player.id: player for player in _load_players(db)}
-    matches = _load_scored_matches(db)
+    matches = _load_scored_matches(db, data_scope)
     match_results: list[str] = []
     partner_buckets: dict[str, dict] = {}
     opponent_buckets: dict[str, dict] = {}
     finals_won = 0
+    close_wins = 0
+    highest_rated_opponent_beaten = int(DEFAULT_ELO_RATING)
 
     for match in matches:
         team_a_ids = [match.team_a_player_1_id, match.team_a_player_2_id]
@@ -241,10 +277,17 @@ def _collect_player_match_insights(db: Session, player_id: str) -> dict:
             opponent_bucket["points_against"] += points_against
             if result == "W":
                 opponent_bucket["wins"] += 1
+                highest_rated_opponent_beaten = max(
+                    highest_rated_opponent_beaten,
+                    int(elo_by_player.get(opponent_id, {}).get("rating", DEFAULT_ELO_RATING)),
+                )
             elif result == "L":
                 opponent_bucket["losses"] += 1
             else:
                 opponent_bucket["draws"] += 1
+
+        if result == "W" and abs(points_for - points_against) == 1:
+            close_wins += 1
 
         if (
             result == "W"
@@ -254,8 +297,14 @@ def _collect_player_match_insights(db: Session, player_id: str) -> dict:
         ):
             finals_won += 1
 
-    partners = [_record_from_bucket(bucket) for bucket in partner_buckets.values()]
-    opponents = [_record_from_bucket(bucket) for bucket in opponent_buckets.values()]
+    partners = sorted(
+        [_record_from_bucket(bucket) for bucket in partner_buckets.values()],
+        key=lambda item: (-item["matches"], -item["win_rate"], item["display_name"].lower()),
+    )
+    opponents = sorted(
+        [_record_from_bucket(bucket) for bucket in opponent_buckets.values()],
+        key=lambda item: (-item["matches"], item["win_rate"], item["display_name"].lower()),
+    )
 
     best_partner = next(
         iter(
@@ -284,15 +333,27 @@ def _collect_player_match_insights(db: Session, player_id: str) -> dict:
         ),
         None,
     )
+    best_unbeaten_partner_run = max(
+        (
+            partner["matches"]
+            for partner in partners
+            if partner["matches"] > 0 and partner["losses"] == 0 and partner["draws"] == 0
+        ),
+        default=0,
+    )
 
     return {
         "best_partner": best_partner,
         "hardest_opponent": hardest_opponent,
         "favorite_opponent": favorite_opponent,
-        "partners": partners,
-        "opponents": opponents,
+        "partners": _top_list(partners),
+        "opponents": _top_list(opponents),
         "streaks": _streaks_from_results(match_results),
         "finals_won": finals_won,
+        "close_wins": close_wins,
+        "bounce_back_run": _best_bounce_back_run(match_results),
+        "best_unbeaten_partner_run": best_unbeaten_partner_run,
+        "highest_rated_opponent_beaten": highest_rated_opponent_beaten,
     }
 
 
@@ -327,6 +388,45 @@ def _find_comeback_podium(db: Session, player_id: str, history: list[dict]) -> b
     return False
 
 
+def _max_podium_streak(history: list[dict]) -> int:
+    completed_history = sorted(
+        [item for item in history if item.get("completed_at") is not None],
+        key=lambda item: item["completed_at"] or item["started_at"] or item["created_at"] or datetime.now(UTC),
+    )
+    best_streak = 0
+    current_streak = 0
+    for item in completed_history:
+        if item.get("placement") is not None and item["placement"] <= 3:
+            current_streak += 1
+            best_streak = max(best_streak, current_streak)
+        else:
+            current_streak = 0
+    return best_streak
+
+
+def _achievement(
+    slug: str,
+    title: str,
+    description: str,
+    icon: str,
+    *,
+    unlocked: bool,
+    progress_current: int | None = None,
+    progress_target: int | None = None,
+    progress_suffix: str | None = None,
+) -> dict:
+    return {
+        "slug": slug,
+        "title": title,
+        "description": description,
+        "icon": icon,
+        "unlocked": unlocked,
+        "progress_current": progress_current,
+        "progress_target": progress_target,
+        "progress_suffix": progress_suffix,
+    }
+
+
 def _build_achievements(
     *,
     global_row: dict,
@@ -337,6 +437,10 @@ def _build_achievements(
     chemistry: dict,
     trophies: dict,
     elo_rating: int,
+    highest_other_elo_rating: int,
+    close_wins: int,
+    bounce_back_run: int,
+    podium_streak: int,
 ) -> list[dict]:
     tournaments_played = global_row.get("tournaments_played", len(history))
     champion_count = trophies["champion"]
@@ -355,75 +459,79 @@ def _build_achievements(
     )
 
     champion_unlocked = champion_count >= 1 or finals_won >= 1
+    giant_killer_rating = chemistry.get("highest_rated_opponent_beaten", int(DEFAULT_ELO_RATING))
+    giant_killer_target = max(highest_other_elo_rating, int(DEFAULT_ELO_RATING))
 
-    definitions = [
-        ("welcome-board", "First night", "Joined the tournament board.", "\U0001F3BE", tournaments_played >= 1),
-        ("first-win", "First win", "Picked up the first recorded win.", "\U0001F525", global_row["wins"] >= 1),
-        (
-            "champion-night",
-            "Champion's night",
-            "Finished first or closed out a tournament-winning final.",
-            "\U0001F3C6",
-            champion_unlocked,
-        ),
-        ("podium-regular", "Podium regular", "Reached the podium five times.", "\U0001F947", podium_count >= 5),
-        ("ten-tournaments", "Ten tournaments", "Played ten tournaments.", "\U0001F4C5", tournaments_played >= 10),
-        ("marathon-player", "Marathon player", "Played twenty-five tournaments.", "\U0001F680", tournaments_played >= 25),
-        ("centurion", "Centurion", "Crossed one hundred all-time points.", "\U0001F4AF", global_row["points"] >= 100),
-        ("match-machine", "Match machine", "Played fifty recorded matches.", "\U0001F6E0", global_row["matches_played"] >= 50),
-        ("hot-hand", "Hot hand", "Won five matches in a row.", "\U0001F525", streaks["best_win_streak"] >= 5),
-        ("undefeated-night", "Undefeated night", "Won a tournament without losing a match.", "\u2728", undefeated_night),
-        ("comeback-king", "Comeback king", "Climbed from outside the top three to a podium finish.", "\U0001F451", comeback_podium),
-        ("clutch-closer", "Clutch closer", "Won a bracket final.", "\U0001F9E0", finals_won >= 1),
-        ("triple-crown", "Triple crown", "Won three tournament nights.", "\U0001F31F", champion_count >= 3),
-        ("silver-collector", "Silver collector", "Finished runner-up three times.", "\U0001F948", trophies["runner_up"] >= 3),
-        ("bronze-battler", "Bronze battler", "Claimed third place three times.", "\U0001F949", trophies["third_place"] >= 3),
-        ("top-seed", "Top seed", "Reached an Elo rating of 1100.", "\U0001F4C8", elo_rating >= 1100),
-        (
+    return [
+        _achievement("welcome-board", "First night", "Joined the tournament board.", "\U0001F3BE", unlocked=tournaments_played >= 1, progress_current=min(tournaments_played, 1), progress_target=1),
+        _achievement("first-win", "First win", "Picked up the first recorded win.", "\U0001F525", unlocked=global_row["wins"] >= 1, progress_current=min(global_row["wins"], 1), progress_target=1),
+        _achievement("champion-night", "Champion's night", "Finished first or closed out a tournament-winning final.", "\U0001F3C6", unlocked=champion_unlocked, progress_current=min(max(champion_count, finals_won), 1), progress_target=1),
+        _achievement("podium-regular", "Podium regular", "Reached the podium five times.", "\U0001F947", unlocked=podium_count >= 5, progress_current=min(podium_count, 5), progress_target=5),
+        _achievement("ten-tournaments", "Ten tournaments", "Played ten tournaments.", "\U0001F4C5", unlocked=tournaments_played >= 10, progress_current=min(tournaments_played, 10), progress_target=10),
+        _achievement("marathon-player", "Marathon player", "Played twenty-five tournaments.", "\U0001F680", unlocked=tournaments_played >= 25, progress_current=min(tournaments_played, 25), progress_target=25),
+        _achievement("centurion", "Centurion", "Crossed one hundred all-time points.", "\U0001F4AF", unlocked=global_row["points"] >= 100, progress_current=min(global_row["points"], 100), progress_target=100),
+        _achievement("match-machine", "Match machine", "Played fifty recorded matches.", "\U0001F6E0", unlocked=global_row["matches_played"] >= 50, progress_current=min(global_row["matches_played"], 50), progress_target=50),
+        _achievement("hot-hand", "Hot hand", "Won five matches in a row.", "\U0001F525", unlocked=streaks["best_win_streak"] >= 5, progress_current=min(streaks["best_win_streak"], 5), progress_target=5),
+        _achievement("undefeated-night", "Undefeated night", "Won a tournament without losing a match.", "\u2728", unlocked=undefeated_night, progress_current=1 if undefeated_night else 0, progress_target=1),
+        _achievement("comeback-king", "Comeback king", "Climbed from outside the top three to a podium finish.", "\U0001F451", unlocked=comeback_podium, progress_current=1 if comeback_podium else 0, progress_target=1),
+        _achievement("clutch-closer", "Clutch closer", "Won a bracket final.", "\U0001F9E0", unlocked=finals_won >= 1, progress_current=min(finals_won, 1), progress_target=1),
+        _achievement("triple-crown", "Triple crown", "Won three tournament nights.", "\U0001F31F", unlocked=champion_count >= 3, progress_current=min(champion_count, 3), progress_target=3),
+        _achievement("silver-collector", "Silver collector", "Finished runner-up three times.", "\U0001F948", unlocked=trophies["runner_up"] >= 3, progress_current=min(trophies["runner_up"], 3), progress_target=3),
+        _achievement("bronze-battler", "Bronze battler", "Claimed third place three times.", "\U0001F949", unlocked=trophies["third_place"] >= 3, progress_current=min(trophies["third_place"], 3), progress_target=3),
+        _achievement("top-seed", "Top seed", "Reached an Elo rating of 1100.", "\U0001F4C8", unlocked=elo_rating >= 1100, progress_current=min(elo_rating, 1100), progress_target=1100),
+        _achievement(
             "dream-team",
             "Dream team",
             "Built a 70% win rate with a partner across at least four matches.",
             "\U0001F91D",
-            best_partner is not None and best_partner["matches"] >= 4 and best_partner["win_rate"] >= 70,
+            unlocked=best_partner is not None and best_partner["matches"] >= 4 and best_partner["win_rate"] >= 70,
+            progress_current=int(best_partner["matches"]) if best_partner is not None else 0,
+            progress_target=4,
+            progress_suffix="matches",
         ),
-        (
+        _achievement(
             "rival-slayer",
             "Rival slayer",
             "Beat an opponent 70% of the time across at least four meetings.",
             "\U0001F5E1",
-            favorite_opponent is not None and favorite_opponent["matches"] >= 4 and favorite_opponent["win_rate"] >= 70,
+            unlocked=favorite_opponent is not None and favorite_opponent["matches"] >= 4 and favorite_opponent["win_rate"] >= 70,
+            progress_current=int(favorite_opponent["matches"]) if favorite_opponent is not None else 0,
+            progress_target=4,
+            progress_suffix="meetings",
         ),
-        ("format-hopper", "Format hopper", "Finished nights in both Americano and Mexicano.", "\U0001F501", len(completed_formats) >= 2),
-        ("iron-wall", "Iron wall", "Built a +50 all-time point difference.", "\U0001F6E1", global_row["game_diff"] >= 50),
-        ("club-staple", "Club staple", "Played twenty completed tournaments.", "\U0001F3DF", tournaments_played >= 20),
-    ]
-
-    return [
-        {
-            "slug": slug,
-            "title": title,
-            "description": description,
-            "icon": icon,
-            "unlocked": unlocked,
-        }
-        for slug, title, description, icon, unlocked in definitions
+        _achievement("format-hopper", "Format hopper", "Finished nights in both Americano and Mexicano.", "\U0001F501", unlocked=len(completed_formats) >= 2, progress_current=min(len(completed_formats), 2), progress_target=2),
+        _achievement("iron-wall", "Iron wall", "Built a +50 all-time point difference.", "\U0001F6E1", unlocked=global_row["game_diff"] >= 50, progress_current=min(global_row["game_diff"], 50), progress_target=50),
+        _achievement("club-staple", "Club staple", "Played twenty completed tournaments.", "\U0001F3DF", unlocked=tournaments_played >= 20, progress_current=min(tournaments_played, 20), progress_target=20),
+        _achievement("night-streak", "Night streak", "Finished on the podium three tournaments in a row.", "\U0001F525", unlocked=podium_streak >= 3, progress_current=min(podium_streak, 3), progress_target=3),
+        _achievement("giant-killer", "Giant killer", "Beat the current Elo king of the hill.", "\U0001F43A", unlocked=giant_killer_target > int(DEFAULT_ELO_RATING) and giant_killer_rating >= giant_killer_target, progress_current=min(giant_killer_rating, giant_killer_target), progress_target=giant_killer_target, progress_suffix="elo"),
+        _achievement("perfect-pairing", "Perfect pairing", "Stayed undefeated with the same partner for five matches.", "\U0001F49E", unlocked=chemistry.get("best_unbeaten_partner_run", 0) >= 5, progress_current=min(chemistry.get("best_unbeaten_partner_run", 0), 5), progress_target=5),
+        _achievement("court-general", "Court general", "Played one hundred total matches.", "\U0001F3DF", unlocked=global_row["matches_played"] >= 100, progress_current=min(global_row["matches_played"], 100), progress_target=100),
+        _achievement("closer", "Closer", "Won three matches by the minimum margin.", "\u23F1", unlocked=close_wins >= 3, progress_current=min(close_wins, 3), progress_target=3),
+        _achievement("bounce-back", "Bounce back", "Lost one match, then won the next three.", "\U0001F4AB", unlocked=bounce_back_run >= 3, progress_current=min(bounce_back_run, 3), progress_target=3),
     ]
 
 
-def build_player_stats(db: Session, player_id: str) -> dict:
+def build_player_stats(db: Session, player_id: str, data_scope: DataScope = DataScope.PROD) -> dict:
     player = db.get(Player, player_id)
     if player is None:
         raise ValueError("Player not found.")
 
-    standings_rows = compute_global_leaderboard(db)
+    standings_rows = compute_global_leaderboard(db, data_scope)
     global_row = next((row for row in standings_rows if row["player_id"] == player_id), _player_base_row(player))
-    elo_rows = compute_elo_leaderboard(db)
-    elo_row = next((row for row in elo_rows if row["player_id"] == player_id), None)
+    elo_rows = compute_elo_leaderboard(db, data_scope)
+    elo_by_player = {row["player_id"]: row for row in elo_rows}
+    elo_row = elo_by_player.get(player_id)
+    highest_other_elo_rating = max(
+        (row["rating"] for row in elo_rows if row["player_id"] != player_id),
+        default=int(DEFAULT_ELO_RATING),
+    )
 
     participations = (
         db.execute(
             select(TournamentParticipant)
             .where(TournamentParticipant.player_id == player_id)
+            .join(Tournament)
+            .where(Tournament.data_scope == _scope_query_value(data_scope))
             .options(selectinload(TournamentParticipant.tournament))
         )
         .scalars()
@@ -457,7 +565,7 @@ def build_player_stats(db: Session, player_id: str) -> dict:
         reverse=True,
     )
 
-    insights = _collect_player_match_insights(db, player_id)
+    insights = _collect_player_match_insights(db, player_id, data_scope=data_scope, elo_by_player=elo_by_player)
     trophies = {
         "champion": sum(1 for item in history if item["placement"] == 1),
         "runner_up": sum(1 for item in history if item["placement"] == 2),
@@ -465,6 +573,7 @@ def build_player_stats(db: Session, player_id: str) -> dict:
     }
     trophies["podiums"] = trophies["champion"] + trophies["runner_up"] + trophies["third_place"]
     comeback_podium = _find_comeback_podium(db, player_id, history)
+    podium_streak = _max_podium_streak(history)
 
     return {
         "player_id": player.id,
@@ -476,6 +585,8 @@ def build_player_stats(db: Session, player_id: str) -> dict:
             "best_partner": insights["best_partner"],
             "hardest_opponent": insights["hardest_opponent"],
             "favorite_opponent": insights["favorite_opponent"],
+            "partners": insights["partners"],
+            "opponents": insights["opponents"],
         },
         "streaks": insights["streaks"],
         "trophies": trophies,
@@ -488,15 +599,26 @@ def build_player_stats(db: Session, player_id: str) -> dict:
             chemistry={
                 "best_partner": insights["best_partner"],
                 "favorite_opponent": insights["favorite_opponent"],
+                "best_unbeaten_partner_run": insights["best_unbeaten_partner_run"],
+                "highest_rated_opponent_beaten": insights["highest_rated_opponent_beaten"],
             },
             trophies=trophies,
             elo_rating=elo_row["rating"] if elo_row else int(DEFAULT_ELO_RATING),
+            highest_other_elo_rating=highest_other_elo_rating,
+            close_wins=insights["close_wins"],
+            bounce_back_run=insights["bounce_back_run"],
+            podium_streak=podium_streak,
         ),
         "history": history[:12],
     }
 
 
-def build_head_to_head(db: Session, player_a_id: str, player_b_id: str) -> dict:
+def build_head_to_head(
+    db: Session,
+    player_a_id: str,
+    player_b_id: str,
+    data_scope: DataScope = DataScope.PROD,
+) -> dict:
     if player_a_id == player_b_id:
         raise ValueError("Choose two different players.")
 
@@ -521,7 +643,7 @@ def build_head_to_head(db: Session, player_a_id: str, player_b_id: str) -> dict:
     }
     recent: list[dict] = []
 
-    for match in reversed(_load_scored_matches(db)):
+    for match in reversed(_load_scored_matches(db, data_scope)):
         team_a_ids = {match.team_a_player_1_id, match.team_a_player_2_id}
         team_b_ids = {match.team_b_player_1_id, match.team_b_player_2_id}
 

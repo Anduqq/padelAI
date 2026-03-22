@@ -2,6 +2,7 @@ export type TournamentFormat = "americano" | "mexicano";
 export type TournamentStatus = "draft" | "active" | "completed";
 export type RoundStatus = "pending" | "active" | "completed";
 export type ScoringSystem = "classic" | "americano_points";
+export type DataScope = "prod" | "test";
 
 export interface PlayerIdentity {
   player_id: string;
@@ -16,6 +17,7 @@ export interface User {
   display_name: string;
   avatar_url?: string | null;
   is_admin: boolean;
+  data_scope: DataScope;
 }
 
 export interface LoginOption {
@@ -67,6 +69,7 @@ export interface TournamentSummary {
   name: string;
   format: TournamentFormat;
   status: TournamentStatus;
+  data_scope: DataScope;
   court_count: number;
   target_rounds: number | null;
   scoring_system: ScoringSystem;
@@ -176,6 +179,9 @@ export interface AchievementTag {
   description: string;
   icon: string;
   unlocked: boolean;
+  progress_current?: number | null;
+  progress_target?: number | null;
+  progress_suffix?: string | null;
 }
 
 export interface PlayerStatsHistoryRow {
@@ -200,6 +206,8 @@ export interface PlayerStatsResponse extends PlayerIdentity {
     best_partner: ChemistryRow | null;
     hardest_opponent: ChemistryRow | null;
     favorite_opponent: ChemistryRow | null;
+    partners: ChemistryRow[];
+    opponents: ChemistryRow[];
   };
   streaks: {
     current_win_streak: number;
@@ -214,6 +222,13 @@ export interface PlayerStatsResponse extends PlayerIdentity {
   };
   achievements: AchievementTag[];
   history: PlayerStatsHistoryRow[];
+}
+
+export interface AdminOverview {
+  current_scope: DataScope;
+  available_scopes: DataScope[];
+  prod_tournaments: number;
+  test_tournaments: number;
 }
 
 export interface HeadToHeadResponse {

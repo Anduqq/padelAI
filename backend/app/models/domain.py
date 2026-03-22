@@ -19,6 +19,11 @@ class TournamentFormat(str, enum.Enum):
     MEXICANO = "mexicano"
 
 
+class DataScope(str, enum.Enum):
+    PROD = "prod"
+    TEST = "test"
+
+
 class TournamentStatus(str, enum.Enum):
     DRAFT = "draft"
     ACTIVE = "active"
@@ -72,6 +77,7 @@ class Tournament(Base):
     target_rounds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     scoring_system: Mapped[str] = mapped_column(String(32), default="classic")
     americano_points_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    data_scope: Mapped[DataScope] = mapped_column(Enum(DataScope), default=DataScope.PROD)
     created_by_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

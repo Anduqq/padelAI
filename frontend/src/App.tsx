@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom
 import { AppLayout } from "./components/AppLayout";
 import { api, ApiError } from "./lib/api";
 import { AuthPage } from "./pages/AuthPage";
+import { AdminPage } from "./pages/AdminPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EloPage } from "./pages/EloPage";
 import { HeadToHeadPage } from "./pages/HeadToHeadPage";
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="elo" element={<EloPage />} />
             <Route path="compare" element={<HeadToHeadPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="admin" element={<AdminPage />} />
             <Route path="tournaments/:tournamentId" element={<TournamentPage />} />
           </Route>
         </Routes>

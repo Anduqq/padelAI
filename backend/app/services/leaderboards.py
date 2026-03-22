@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Match, Player, Tournament, TournamentParticipant
+from app.models import DataScope, Match, Player, Tournament, TournamentParticipant
 from app.services.player_media import build_avatar_url
 
 
@@ -64,6 +64,10 @@ def _sorted_rows(rows: list[dict]) -> list[dict]:
     return ordered
 
 
+def _scope_query_value(data_scope: DataScope | str) -> DataScope:
+    return data_scope if isinstance(data_scope, DataScope) else DataScope(str(data_scope))
+
+
 def compute_tournament_standings(db: Session, tournament_id: str) -> list[dict]:
     participants = (
         db.execute(
@@ -91,11 +95,15 @@ def compute_tournament_standings(db: Session, tournament_id: str) -> list[dict]:
     return _sorted_rows(list(rows.values()))
 
 
-def compute_global_leaderboard(db: Session) -> list[dict]:
+def compute_global_leaderboard(db: Session, data_scope: DataScope = DataScope.PROD) -> list[dict]:
     players = db.execute(select(Player).order_by(Player.display_name)).scalars().all()
     rows = {player.id: _player_base_row(player) for player in players}
 
-    matches = db.execute(select(Match)).scalars().all()
+    matches = (
+        db.execute(select(Match).join(Tournament).where(Tournament.data_scope == _scope_query_value(data_scope)))
+        .scalars()
+        .all()
+    )
     for match in matches:
         if match.team_a_games is None or match.team_b_games is None:
             continue
@@ -107,7 +115,16 @@ def compute_global_leaderboard(db: Session) -> list[dict]:
             _apply_match_result(rows[player_id], match.team_b_games, match.team_a_games)
 
     tournament_counts = defaultdict(int)
-    for participant in db.execute(select(TournamentParticipant)).scalars().all():
+    scoped_participants = (
+        db.execute(
+            select(TournamentParticipant)
+            .join(Tournament)
+            .where(Tournament.data_scope == _scope_query_value(data_scope))
+        )
+        .scalars()
+        .all()
+    )
+    for participant in scoped_participants:
         tournament_counts[participant.player_id] += 1
 
     for player_id, row in rows.items():
@@ -116,18 +133,20 @@ def compute_global_leaderboard(db: Session) -> list[dict]:
     return _sorted_rows(list(rows.values()))
 
 
-def build_player_stats(db: Session, player_id: str) -> dict:
+def build_player_stats(db: Session, player_id: str, data_scope: DataScope = DataScope.PROD) -> dict:
     player = db.get(Player, player_id)
     if player is None:
         raise ValueError("Player not found.")
 
-    standings_rows = compute_global_leaderboard(db)
+    standings_rows = compute_global_leaderboard(db, data_scope)
     global_row = next((row for row in standings_rows if row["player_id"] == player_id), _player_base_row(player))
 
     participations = (
         db.execute(
             select(TournamentParticipant)
             .where(TournamentParticipant.player_id == player_id)
+            .join(Tournament)
+            .where(Tournament.data_scope == _scope_query_value(data_scope))
             .options(selectinload(TournamentParticipant.tournament))
             .order_by(TournamentParticipant.order_index)
         )
@@ -170,10 +189,23 @@ def build_player_stats(db: Session, player_id: str) -> dict:
     }
 
 
-def build_player_suggestions(db: Session, limit: int = 12) -> list[dict]:
+def build_player_suggestions(db: Session, limit: int = 12, data_scope: DataScope = DataScope.PROD) -> list[dict]:
     players = db.execute(select(Player).order_by(Player.display_name)).scalars().all()
-    tournaments = {tournament.id: tournament for tournament in db.execute(select(Tournament)).scalars().all()}
-    memberships = db.execute(select(TournamentParticipant)).scalars().all()
+    tournaments = {
+        tournament.id: tournament
+        for tournament in db.execute(select(Tournament).where(Tournament.data_scope == _scope_query_value(data_scope)))
+        .scalars()
+        .all()
+    }
+    memberships = (
+        db.execute(
+            select(TournamentParticipant)
+            .join(Tournament)
+            .where(Tournament.data_scope == _scope_query_value(data_scope))
+        )
+        .scalars()
+        .all()
+    )
 
     by_player: dict[str, dict] = {
         player.id: {

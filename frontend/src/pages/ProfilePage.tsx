@@ -120,6 +120,64 @@ function ChemistryCard({
   );
 }
 
+function ChemistryMiniChart({
+  eyebrow,
+  title,
+  rows,
+  metric
+}: {
+  eyebrow: string;
+  title: string;
+  rows: Array<{
+    player_id: string;
+    display_name: string;
+    avatar_url?: string | null;
+    matches: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+  }>;
+  metric: "matches" | "win_rate";
+}) {
+  const topValue = Math.max(...rows.map((row) => (metric === "matches" ? row.matches : row.win_rate)), 1);
+
+  return (
+    <article className="panel chemistry-card">
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h3>{title}</h3>
+      </div>
+      {rows.length > 0 ? (
+        <div className="mini-chart-list">
+          {rows.map((row) => {
+            const value = metric === "matches" ? row.matches : row.win_rate;
+            const width = `${Math.max(18, (value / topValue) * 100)}%`;
+            return (
+              <div key={`${eyebrow}-${row.player_id}`} className="mini-chart-row">
+                <div className="mini-chart-copy">
+                  <div className="player-row">
+                    <AvatarBadge name={row.display_name} seed={row.player_id} avatarUrl={row.avatar_url} size="sm" />
+                    <strong>{row.display_name}</strong>
+                  </div>
+                  <span className="muted-text">
+                    {row.matches} matches | {row.wins}W {row.losses}L
+                  </span>
+                </div>
+                <div className="mini-chart-track">
+                  <span className="mini-chart-fill" style={{ width }} />
+                </div>
+                <strong>{metric === "matches" ? row.matches : `${row.win_rate}%`}</strong>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="muted-text">Play a few more rounds and the chemistry chart will start filling up.</p>
+      )}
+    </article>
+  );
+}
+
 export function ProfilePage() {
   const queryClient = useQueryClient();
   const [playerSearch, setPlayerSearch] = useState("");
@@ -351,6 +409,21 @@ export function ProfilePage() {
         />
       </section>
 
+      <section className="profile-chart-grid">
+        <ChemistryMiniChart
+          eyebrow="Partner chemistry"
+          title="Most-played partners"
+          rows={profile.chemistry.partners}
+          metric="matches"
+        />
+        <ChemistryMiniChart
+          eyebrow="Rival radar"
+          title="Most-played opponents"
+          rows={profile.chemistry.opponents}
+          metric="win_rate"
+        />
+      </section>
+
       <section className="panel stack-section">
         <div className="split-row">
           <div>
@@ -418,6 +491,27 @@ export function ProfilePage() {
               </span>
               <strong>{achievement.title}</strong>
               <p className="muted-text">{achievement.description}</p>
+              {achievement.progress_target ? (
+                <div className="achievement-progress">
+                  <div className="achievement-progress-copy">
+                    <span>
+                      {Math.min(achievement.progress_current ?? 0, achievement.progress_target)} / {achievement.progress_target}
+                    </span>
+                    {achievement.progress_suffix ? <span>{achievement.progress_suffix}</span> : null}
+                  </div>
+                  <div className="achievement-progress-track">
+                    <span
+                      className="achievement-progress-fill"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          ((achievement.progress_current ?? 0) / achievement.progress_target) * 100
+                        )}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

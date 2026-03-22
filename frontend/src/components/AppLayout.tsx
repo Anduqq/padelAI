@@ -12,14 +12,6 @@ interface AppLayoutProps {
   children?: ReactNode;
 }
 
-const navItems = [
-  { to: "/", label: "Tournaments" },
-  { to: "/leaderboard", label: "Leaderboard" },
-  { to: "/elo", label: "Elo" },
-  { to: "/compare", label: "Compare" },
-  { to: "/profile", label: "My Stats" }
-];
-
 export function AppLayout({ currentUser, children }: AppLayoutProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -33,11 +25,21 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
         queryClient.removeQueries({ queryKey: ["tournaments"] }),
         queryClient.removeQueries({ queryKey: ["global-leaderboard"] }),
         queryClient.removeQueries({ queryKey: ["elo-leaderboard"] }),
-        queryClient.removeQueries({ queryKey: ["my-stats"] })
+        queryClient.removeQueries({ queryKey: ["my-stats"] }),
+        queryClient.removeQueries({ queryKey: ["admin-overview"] })
       ]);
       navigate("/login");
     }
   });
+
+  const navItems = [
+    { to: "/", label: "Tournaments" },
+    { to: "/leaderboard", label: "Leaderboard" },
+    { to: "/elo", label: "Elo" },
+    { to: "/compare", label: "Compare" },
+    { to: "/profile", label: "My Stats" },
+    ...(currentUser.is_admin ? [{ to: "/admin", label: "Admin" }] : [])
+  ];
 
   return (
     <div className="screen-shell app-shell">
@@ -67,6 +69,9 @@ export function AppLayout({ currentUser, children }: AppLayoutProps) {
               <span>
                 {currentUser.display_name}
                 {currentUser.is_admin ? <span className="admin-tag inline-tag">Admin</span> : null}
+                <span className={`status-badge inline-tag ${currentUser.data_scope === "prod" ? "status-completed" : "status-draft"}`}>
+                  {currentUser.data_scope === "prod" ? "Prod" : "Test"}
+                </span>
               </span>
             </div>
             <button type="button" className="ghost-button" onClick={() => logoutMutation.mutate()}>

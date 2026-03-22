@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_scope, get_current_user
 from app.db.session import get_db
-from app.models import Player, User
+from app.models import DataScope, Player, User
 from app.schemas.requests import PlayerCreateRequest
 from app.services.analytics import build_head_to_head, build_player_stats
 from app.services.leaderboards import build_player_suggestions
@@ -100,19 +100,21 @@ async def upload_player_avatar(
 @router.get("/suggestions")
 def suggestions(
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[dict]:
-    return build_player_suggestions(db)
+    return build_player_suggestions(db, data_scope=current_scope)
 
 
 @router.get("/me/stats")
 def my_stats(
     current_user: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     if current_user.player_profile is None:
         raise HTTPException(status_code=404, detail="Player profile not found.")
-    return build_player_stats(db, current_user.player_profile.id)
+    return build_player_stats(db, current_user.player_profile.id, current_scope)
 
 
 @router.get("/head-to-head")
@@ -120,10 +122,11 @@ def head_to_head(
     player_a_id: str,
     player_b_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     try:
-        return build_head_to_head(db, player_a_id, player_b_id)
+        return build_head_to_head(db, player_a_id, player_b_id, current_scope)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -132,9 +135,10 @@ def head_to_head(
 def player_stats(
     player_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     try:
-        return build_player_stats(db, player_id)
+        return build_player_stats(db, player_id, current_scope)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

@@ -1,4 +1,5 @@
 from app.models.domain import (
+    DataScope,
     Match,
     Player,
     Round,
@@ -13,6 +14,7 @@ from app.models.domain import (
 )
 
 __all__ = [
+    "DataScope",
     "Match",
     "Player",
     "Round",

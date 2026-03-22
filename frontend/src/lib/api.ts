@@ -1,4 +1,5 @@
 import type {
+  AdminOverview,
   EloLeaderboardRow,
   HeadToHeadResponse,
   LeaderboardRow,
@@ -147,5 +148,20 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   getGlobalLeaderboard: () => request<LeaderboardRow[]>("/api/leaderboards/global"),
-  getEloLeaderboard: () => request<EloLeaderboardRow[]>("/api/leaderboards/elo")
+  getEloLeaderboard: () => request<EloLeaderboardRow[]>("/api/leaderboards/elo"),
+  getAdminOverview: () => request<AdminOverview>("/api/admin/overview"),
+  setDataScope: (scope: "prod" | "test") =>
+    request<AdminOverview>("/api/admin/scope", {
+      method: "POST",
+      body: JSON.stringify({ scope })
+    }),
+  seedTestData: (payload: { tournament_count: number; replace_existing: boolean }) =>
+    request<AdminOverview>("/api/admin/test-data/seed", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  clearTestData: () =>
+    request<AdminOverview>("/api/admin/test-data", {
+      method: "DELETE"
+    })
 };

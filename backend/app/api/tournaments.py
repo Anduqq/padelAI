@@ -8,9 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_scope, get_current_user
 from app.db.session import get_db
 from app.models import (
+    DataScope,
     Match,
     Player,
     Round,
@@ -63,6 +64,7 @@ def _serialize_tournament_summary(tournament: Tournament) -> dict:
         "name": tournament.name,
         "format": tournament.format.value,
         "status": tournament.status.value,
+        "data_scope": tournament.data_scope.value if isinstance(tournament.data_scope, DataScope) else str(tournament.data_scope),
         "court_count": tournament.court_count,
         "target_rounds": tournament.target_rounds,
         "scoring_system": tournament.scoring_system,
@@ -134,11 +136,13 @@ def _serialize_round(round_row: Round, player_map: dict[str, Player], can_unlock
     }
 
 
-def _load_tournament(db: Session, tournament_id: str) -> Tournament | None:
+def _load_tournament(db: Session, tournament_id: str, data_scope: DataScope | None = None) -> Tournament | None:
+    query = select(Tournament).where(Tournament.id == tournament_id)
+    if data_scope is not None:
+        query = query.where(Tournament.data_scope == data_scope)
     return (
         db.execute(
-            select(Tournament)
-            .where(Tournament.id == tournament_id)
+            query
             .options(
                 selectinload(Tournament.participants).selectinload(TournamentParticipant.player),
                 selectinload(Tournament.rounds).selectinload(Round.matches),
@@ -625,6 +629,7 @@ def _delete_tournament_dependencies(db: Session, tournament_id: str) -> None:
 def create_tournament(
     payload: TournamentCreateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     players = db.execute(select(Player).where(Player.id.in_(payload.participant_ids))).scalars().all()
@@ -646,6 +651,7 @@ def create_tournament(
         target_rounds=payload.target_rounds,
         scoring_system=scoring_config.scoring_system,
         americano_points_target=scoring_config.americano_points_target,
+        data_scope=current_scope,
         created_by_user_id=current_user.id,
     )
     db.add(tournament)
@@ -661,7 +667,7 @@ def create_tournament(
         )
 
     db.commit()
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be loaded.")
     return _serialize_tournament_detail(db, tournament)
@@ -670,11 +676,13 @@ def create_tournament(
 @router.get("")
 def list_tournaments(
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[dict]:
     tournaments = (
         db.execute(
             select(Tournament)
+            .where(Tournament.data_scope == current_scope)
             .options(selectinload(Tournament.participants))
             .order_by(Tournament.created_at.desc())
         )
@@ -687,12 +695,16 @@ def list_tournaments(
 @router.get("/history/tournaments")
 def completed_tournaments(
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> list[dict]:
     tournaments = (
         db.execute(
             select(Tournament)
-            .where(Tournament.status == TournamentStatus.COMPLETED)
+            .where(
+                Tournament.status == TournamentStatus.COMPLETED,
+                Tournament.data_scope == current_scope,
+            )
             .options(selectinload(Tournament.participants))
             .order_by(Tournament.completed_at.desc(), Tournament.created_at.desc())
         )
@@ -706,9 +718,10 @@ def completed_tournaments(
 def get_tournament(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     return _serialize_tournament_detail(db, tournament)
@@ -718,9 +731,12 @@ def get_tournament(
 def delete_tournament(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> Response:
-    tournament = db.get(Tournament, tournament_id)
+    tournament = db.execute(
+        select(Tournament).where(Tournament.id == tournament_id, Tournament.data_scope == current_scope)
+    ).scalars().first()
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.status == TournamentStatus.COMPLETED:
@@ -736,9 +752,10 @@ def delete_tournament(
 async def start_tournament(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.status != TournamentStatus.DRAFT:
@@ -764,7 +781,7 @@ async def start_tournament(
         _materialize_round(db, tournament, round_spec, RoundStatus.ACTIVE)
 
     db.commit()
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be loaded after start.")
 
@@ -776,9 +793,10 @@ async def start_tournament(
 async def generate_next_round(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.format != TournamentFormat.MEXICANO:
@@ -804,7 +822,7 @@ async def generate_next_round(
     _materialize_round(db, tournament, next_round_spec, RoundStatus.ACTIVE)
     db.commit()
 
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -819,9 +837,10 @@ async def generate_next_round(
 async def generate_next_rotation(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.format != TournamentFormat.AMERICANO:
@@ -854,7 +873,7 @@ async def generate_next_rotation(
         tournament.target_rounds = round_row.number
 
     db.commit()
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -869,9 +888,10 @@ async def generate_next_rotation(
 async def start_bracket(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.status != TournamentStatus.ACTIVE:
@@ -894,7 +914,7 @@ async def start_bracket(
     )
     db.commit()
 
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -909,9 +929,10 @@ async def start_bracket(
 async def continue_bracket(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.status != TournamentStatus.ACTIVE:
@@ -958,7 +979,7 @@ async def continue_bracket(
         )
 
     db.commit()
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -973,9 +994,10 @@ async def continue_bracket(
 async def finish_tournament(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
     if tournament.status != TournamentStatus.ACTIVE:
@@ -984,7 +1006,7 @@ async def finish_tournament(
     _finish_tournament_state(db, tournament)
     db.commit()
 
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -999,16 +1021,17 @@ async def finish_tournament(
 async def play_top_four_final(
     tournament_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
 
     round_row = _create_top_four_final_round(db, tournament)
     db.commit()
 
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -1024,9 +1047,10 @@ async def unlock_round(
     tournament_id: str,
     round_id: str,
     _: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
-    tournament = _load_tournament(db, tournament_id)
+    tournament = _load_tournament(db, tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=404, detail="Tournament not found.")
 
@@ -1037,7 +1061,7 @@ async def unlock_round(
     _unlock_round_state(db, tournament, round_row)
     db.commit()
 
-    tournament = _load_tournament(db, tournament.id)
+    tournament = _load_tournament(db, tournament.id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 
@@ -1053,6 +1077,7 @@ async def update_score(
     match_id: str,
     payload: ScoreUpdateRequest,
     current_user: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     match = (
@@ -1069,6 +1094,8 @@ async def update_score(
         .first()
     )
     if match is None:
+        raise HTTPException(status_code=404, detail="Match not found.")
+    if match.tournament.data_scope != current_scope:
         raise HTTPException(status_code=404, detail="Match not found.")
     if match.tournament.status != TournamentStatus.ACTIVE or match.round.status != RoundStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="Only active round matches can be edited.")
@@ -1107,7 +1134,7 @@ async def update_score(
         _persist_round_completion(db, match.tournament, match.round)
 
     db.commit()
-    tournament = _load_tournament(db, match.tournament_id)
+    tournament = _load_tournament(db, match.tournament_id, current_scope)
     if tournament is None:
         raise HTTPException(status_code=500, detail="Tournament could not be reloaded.")
 

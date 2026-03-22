@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, leaderboards, players, tournaments
+from app.api import admin, auth, leaderboards, players, tournaments
 from app.core.config import settings
 from app.core.security import decode_access_token
 from app.db.session import SessionLocal, init_db
@@ -44,6 +44,7 @@ def create_app(*, use_lifespan: bool = True) -> FastAPI:
     )
 
     app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+    app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
     app.include_router(players.router, prefix="/api/players", tags=["players"])
     app.include_router(leaderboards.router, prefix="/api/leaderboards", tags=["leaderboards"])
     app.include_router(tournaments.router, prefix="/api/tournaments", tags=["tournaments"])

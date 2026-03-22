@@ -100,6 +100,8 @@ def test_my_stats_exposes_chemistry_achievements_and_elo(client: TestClient, db_
     payload = response.json()
     assert payload["chemistry"]["best_partner"]["display_name"] == "Ada"
     assert payload["chemistry"]["hardest_opponent"]["display_name"] in {"Ben", "Cris"}
+    assert payload["chemistry"]["partners"][0]["display_name"] == "Ada"
+    assert payload["chemistry"]["opponents"]
     assert payload["elo_rating"] > 1000
     unlocked = {achievement["slug"] for achievement in payload["achievements"] if achievement["unlocked"]}
     assert unlocked >= {
@@ -108,6 +110,10 @@ def test_my_stats_exposes_chemistry_achievements_and_elo(client: TestClient, db_
         "champion-night",
         "clutch-closer",
     }
+    achievement_map = {achievement["slug"]: achievement for achievement in payload["achievements"]}
+    assert achievement_map["court-general"]["progress_target"] == 100
+    assert achievement_map["court-general"]["progress_current"] == 1
+    assert achievement_map["night-streak"]["progress_target"] == 3
     assert any(achievement["slug"] == "triple-crown" and achievement["unlocked"] is False for achievement in payload["achievements"])
 
 

@@ -25,6 +25,7 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _ensure_user_admin_column()
     _ensure_tournament_scoring_columns()
+    _ensure_tournament_data_scope_column()
     _ensure_player_avatar_column()
     settings.avatars_dir.mkdir(parents=True, exist_ok=True)
 
@@ -76,6 +77,20 @@ def _ensure_tournament_scoring_columns() -> None:
     with engine.begin() as connection:
         for statement in statements:
             connection.execute(text(statement))
+
+
+def _ensure_tournament_data_scope_column() -> None:
+    inspector = inspect(engine)
+    if "tournaments" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("tournaments")}
+    if "data_scope" in columns:
+        return
+
+    statement = "ALTER TABLE tournaments ADD COLUMN data_scope VARCHAR(16) NOT NULL DEFAULT 'PROD'"
+    with engine.begin() as connection:
+        connection.execute(text(statement))
 
 
 def _ensure_player_avatar_column() -> None:

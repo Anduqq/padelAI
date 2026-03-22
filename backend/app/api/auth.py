@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user
+from app.api.deps import get_current_scope, get_current_user
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.session import get_db
-from app.models import Player, User
+from app.models import DataScope, Player, User
 from app.schemas.requests import PlayerLoginRequest
 from app.services.player_media import build_avatar_url
 
@@ -28,7 +28,19 @@ def _set_auth_cookie(response: Response, user_id: str) -> None:
     )
 
 
-def _serialize_user(user: User) -> dict:
+def _set_scope_cookie(response: Response, scope: DataScope) -> None:
+    response.set_cookie(
+        key=settings.data_scope_cookie_name,
+        value=scope.value,
+        httponly=True,
+        secure=settings.secure_cookies,
+        samesite="lax",
+        max_age=settings.access_token_expire_minutes * 60,
+        path="/",
+    )
+
+
+def _serialize_user(user: User, scope: DataScope) -> dict:
     player = user.player_profile
     return {
         "id": user.id,
@@ -37,6 +49,7 @@ def _serialize_user(user: User) -> dict:
         "display_name": player.display_name if player else None,
         "avatar_url": build_avatar_url(player),
         "is_admin": user.is_admin,
+        "data_scope": scope.value,
     }
 
 
@@ -81,7 +94,8 @@ def select_player(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Player not found.")
 
     _set_auth_cookie(response, player.user.id)
-    return _serialize_user(player.user)
+    _set_scope_cookie(response, DataScope.PROD)
+    return _serialize_user(player.user, DataScope.PROD)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -94,9 +108,19 @@ def logout() -> Response:
         secure=settings.secure_cookies,
         samesite="lax",
     )
+    response.delete_cookie(
+        key=settings.data_scope_cookie_name,
+        path="/",
+        httponly=True,
+        secure=settings.secure_cookies,
+        samesite="lax",
+    )
     return response
 
 
 @router.get("/me")
-def me(current_user: Annotated[User, Depends(get_current_user)]) -> dict:
-    return _serialize_user(current_user)
+def me(
+    current_user: Annotated[User, Depends(get_current_user)],
+    current_scope: Annotated[DataScope, Depends(get_current_scope)],
+) -> dict:
+    return _serialize_user(current_user, current_scope)
